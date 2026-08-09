@@ -161,4 +161,198 @@ th.num {
     background: var(--color-surface-3);
     color: var(--color-muted);
   }
+
+  /* ---------- Botón ---------- */
+  .eike-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    border-radius: var(--radius-eike-sm);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 9px 15px;
+    border: 1px solid transparent;
+  }
+  .eike-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .eike-btn--cyan {
+    background: var(--color-cyan);
+    color: #04222b;
+  }
+  .eike-btn--cyan:hover:not(:disabled) {
+    background: var(--color-cyan-deep);
+  }
+  .eike-btn--ghost {
+    background: var(--color-surface-2);
+    border-color: var(--color-border);
+    color: var(--color-text);
+  }
+  .eike-btn--ghost:hover:not(:disabled) {
+    border-color: var(--color-cyan);
+  }
+  .eike-btn--sm {
+    padding: 7px 12px;
+    font-size: 12.5px;
+  }
+
+  /* ---------- Avatar ---------- */
+  .eike-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--color-surface-3);
+    border: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-cyan);
+    flex: none;
+  }
+
+  /* ---------- Topbar ---------- */
+  .eike-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: rgba(16, 20, 26, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+  .eike-topbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 24px;
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+  .eike-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eike-brand-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(155deg, var(--color-cyan) 0%, var(--color-cyan-deep) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #04222b;
+    font-weight: 800;
+    font-size: 15px;
+    flex: none;
+  }
+  .eike-brand-word {
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 0.01em;
+  }
+  .eike-user-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eike-user-name {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .eike-user-role {
+    font-size: 11px;
+    color: var(--color-muted);
+  }
+
+  /* ---------- Nav de tabs (panel) ---------- */
+  .eike-nav {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--color-border-soft);
+    max-width: 1240px;
+    margin: 0 auto;
+  }
+  .eike-nav-tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    background: none;
+    border: none;
+    color: var(--color-muted);
+    padding: 11px 14px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .eike-nav-tab:hover {
+    color: var(--color-text);
+  }
+  .eike-nav-tab--activa {
+    color: var(--color-cyan);
+    border-bottom-color: var(--color-cyan);
+  }
+
+  /* ---------- Tabla ---------- */
+  .eike-tabla th {
+    text-align: left;
+    padding: 9px 10px;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-muted);
+    border-bottom: 1px solid var(--color-border);
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .eike-tabla td {
+    padding: 11px 10px;
+    border-bottom: 1px solid var(--color-border-soft);
+    font-size: 13.5px;
+    white-space: nowrap;
+  }
+  .eike-tabla tr:last-child td {
+    border-bottom: none;
+  }
+  .eike-tabla td.right,
+  .eike-tabla th.right {
+    text-align: right;
+  }
+
+  /* ---------- Campo de formulario ---------- */
+  .eike-campo-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--color-muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .eike-campo-input {
+    width: 100%;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-eike-sm);
+    color: var(--color-text);
+    padding: 9px 12px;
+    font-size: 13.5px;
+  }
+  .eike-campo-input:focus {
+    outline: 2px solid var(--color-cyan);
+    outline-offset: -1px;
+    border-color: var(--color-cyan);
+  }
+  .eike-campo-error {
+    font-size: 12px;
+    color: var(--color-red);
+    margin-top: 4px;
+  }
 }
