@@ -1,26 +1,164 @@
 @import "tailwindcss";
 
+/*
+ * Tokens de diseño — copiados 1:1 del artifact aprobado
+ * (Eike — Panel Organizador, rediseño). Tema único, oscuro.
+ * No agregar variante clara: el producto es solo-oscuro por decisión de diseño.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg: #10141a;
+  --color-surface: #171d24;
+  --color-surface-2: #1e262f;
+  --color-surface-3: #232c37;
+  --color-border: #2b3540;
+  --color-border-soft: #212a34;
+  --color-text: #f3f4f6;
+  --color-muted: #8d99a8;
+  --color-muted-dim: #5f6b7a;
+
+  --color-cyan: #00b4d8;
+  --color-cyan-deep: #0096c7;
+  --color-cyan-dim: #0d3a47;
+  --color-amber: #ffb703;
+  --color-amber-dim: #3a2f10;
+  --color-green: #4ade80;
+  --color-green-dim: #123321;
+  --color-red: #ef4444;
+  --color-red-dim: #3a1616;
+  --color-orange: #f97316;
+
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-2: var(--color-surface-2);
+  --color-surface-3: var(--color-surface-3);
+  --color-border: var(--color-border);
+  --color-border-soft: var(--color-border-soft);
+  --color-text: var(--color-text);
+  --color-muted: var(--color-muted);
+  --color-muted-dim: var(--color-muted-dim);
+
+  --color-cyan: var(--color-cyan);
+  --color-cyan-deep: var(--color-cyan-deep);
+  --color-cyan-dim: var(--color-cyan-dim);
+  --color-amber: var(--color-amber);
+  --color-amber-dim: var(--color-amber-dim);
+  --color-green: var(--color-green);
+  --color-green-dim: var(--color-green-dim);
+  --color-red: var(--color-red);
+  --color-red-dim: var(--color-red-dim);
+  --color-orange: var(--color-orange);
+
+  --radius-eike: 10px;
+  --radius-eike-sm: 6px;
+
+  /* Escala 4/8/12/16/20/24/32/48 (doc del artifact) sale de una unidad base de 4px */
+  --spacing: 4px;
+
+  --font-sans: -apple-system, "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+*,
+::after,
+::before {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-cyan-dim);
+  color: var(--color-text);
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-cyan);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* Todo número (montos, contadores, fechas cortas) usa numerales tabulares */
+.num,
+td.num,
+th.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@layer components {
+  .eike-eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--color-muted);
+    font-weight: 600;
+  }
+
+  .eike-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-eike);
+  }
+
+  .eike-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .eike-pill--ok {
+    background: var(--color-green-dim);
+    color: var(--color-green);
+  }
+  .eike-pill--warn {
+    background: var(--color-amber-dim);
+    color: var(--color-amber);
+  }
+  .eike-pill--err {
+    background: var(--color-red-dim);
+    color: var(--color-red);
+  }
+  .eike-pill--info {
+    background: var(--color-cyan-dim);
+    color: var(--color-cyan);
+  }
+  .eike-pill--neutral {
+    background: var(--color-surface-3);
+    color: var(--color-muted);
+  }
 }

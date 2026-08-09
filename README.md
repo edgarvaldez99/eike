@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Eike — Next.js + PostgreSQL
 
-## Getting Started
+Reescritura del tiquetero Eike (hoy en producción como PHP + MariaDB en
+`eike.com.py`) sobre Next.js (App Router) + PostgreSQL, desplegado en GCP.
 
-First, run the development server:
+Este repo es la migración; el proyecto PHP original sigue vivo en producción
+hasta el cutover. Ver el plan completo de la migración (contexto, decisiones,
+esquema, fases y riesgos) — pedíselo a Claude Code si no lo tenés a mano.
+
+## Desarrollo local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env          # completar SESSION_SECRET
+pnpm install
+pnpm db:up                    # levanta Postgres + Adminer (docker/compose.dev.yml)
+pnpm db:generate && pnpm db:migrate
+pnpm dev                      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Adminer (administrador de la base) queda en `http://localhost:8082`
+(sistema: PostgreSQL, servidor: `db`, usuario/clave: `eike` / `eike_local`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Next.js 16 (App Router) + React 19 + TypeScript · Drizzle ORM + PostgreSQL 17 ·
+Tailwind v4 (tokens del diseño oscuro/cyan aprobado, en `src/app/globals.css`) ·
+`iron-session` + `bcryptjs` para auth · Zod para validación · Docker Compose +
+Caddy para producción en una VM de GCP.
 
-## Learn More
+## Estructura
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `src/app/` — rutas (App Router): `(publico)` indexable/SSR, `(panel)` privado.
+- `src/db/` — esquema Drizzle y cliente de conexión.
+- `src/lib/` — constantes de dominio, auth, validaciones, utilidades.
+- `src/componentes/` — UI compartida (design system del artifact aprobado).
+- `scripts/` — migración de datos MariaDB → Postgres, seed.
+- `docker/` — compose de desarrollo y de producción, Dockerfile, Caddyfile.
