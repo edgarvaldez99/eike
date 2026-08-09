@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/cliente";
-import { eventos, staffEventos, tandas } from "@/db/esquema";
+import { eventos, staffEventos, tandas, usuarios } from "@/db/esquema";
 import type { Rol } from "@/lib/constantes";
 import { usuarioActual, type UsuarioSesion } from "./sesion";
 
@@ -88,4 +88,42 @@ export async function puedeEscanearEvento(eventoId: number, usuario: UsuarioSesi
     return asignacion !== undefined;
   }
   return false;
+}
+
+/**
+ * El staff existe y está asignado a al menos un evento del organizador (o es
+ * superadmin). Puerto de staff.php::staffPropio.
+ */
+export async function staffPropio(staffId: number, usuario: UsuarioSesion) {
+  if (usuario.rol === "superadmin") {
+    const [staff] = await db
+      .select()
+      .from(usuarios)
+      .where(and(eq(usuarios.id, staffId), eq(usuarios.rol, "staff")))
+      .limit(1);
+    if (!staff) throw new ErrorAutorizacion("Ese miembro de staff no existe.");
+    return staff;
+  }
+
+  const [fila] = await db
+    .selectDistinct({
+      id: usuarios.id,
+      nombre: usuarios.nombre,
+      email: usuarios.email,
+      rol: usuarios.rol,
+      estado: usuarios.estado,
+      creadoEn: usuarios.creadoEn,
+    })
+    .from(usuarios)
+    .innerJoin(staffEventos, eq(staffEventos.staffId, usuarios.id))
+    .innerJoin(eventos, eq(eventos.id, staffEventos.eventoId))
+    .where(
+      and(eq(usuarios.id, staffId), eq(usuarios.rol, "staff"), eq(eventos.organizadorId, usuario.id)),
+    )
+    .limit(1);
+
+  if (!fila) {
+    throw new ErrorAutorizacion("Ese miembro de staff no está asignado a ninguno de tus eventos.");
+  }
+  return fila;
 }

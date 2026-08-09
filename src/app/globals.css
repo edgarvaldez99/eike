@@ -355,4 +355,19 @@ th.num {
     color: var(--color-red);
     margin-top: 4px;
   }
+
+  .eike-help {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--color-muted-dim);
+    color: var(--color-muted-dim);
+    font-size: 9.5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    font-weight: 700;
+    margin-left: 5px;
+  }
 }

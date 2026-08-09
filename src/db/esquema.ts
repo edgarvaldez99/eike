@@ -29,6 +29,19 @@ import {
   METODOS_PAGO,
   ROLES,
   TIPOS_TANDA,
+  type AprobacionGratuito,
+  type EstadoAsiento,
+  type EstadoEvento,
+  type EstadoLiquidacion,
+  type EstadoPago,
+  type EstadoReembolso,
+  type EstadoSuscripcion,
+  type EstadoTanda,
+  type EstadoTicket,
+  type EstadoUsuario,
+  type MetodoPago,
+  type Rol,
+  type TipoTanda,
 } from "@/lib/constantes";
 
 /**
@@ -73,10 +86,10 @@ export const usuarios = pgTable(
     nombre: varchar("nombre", { length: 150 }).notNull(),
     email: varchar("email", { length: 150 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-    rol: text("rol").notNull(),
+    rol: text("rol").notNull().$type<Rol>(),
     telefono: varchar("telefono", { length: 30 }),
     cedula: varchar("cedula", { length: 30 }),
-    estado: text("estado").notNull().default("activo"),
+    estado: text("estado").notNull().default("activo").$type<EstadoUsuario>(),
     motivoRechazo: varchar("motivo_rechazo", { length: 255 }),
     rucFacturacion: varchar("ruc_facturacion", { length: 30 }),
     tycAceptadoEn: timestamp("tyc_aceptado_en", { withTimezone: true }),
@@ -113,8 +126,11 @@ export const eventos = pgTable(
     aficheUrl: varchar("afiche_url", { length: 255 }),
     aforoTotal: integer("aforo_total"),
     esGratuito: boolean("es_gratuito").notNull().default(false),
-    aprobacionGratuito: text("aprobacion_gratuito").notNull().default("no_aplica"),
-    estado: text("estado").notNull().default("borrador"),
+    aprobacionGratuito: text("aprobacion_gratuito")
+      .notNull()
+      .default("no_aplica")
+      .$type<AprobacionGratuito>(),
+    estado: text("estado").notNull().default("borrador").$type<EstadoEvento>(),
     fechaEventoOriginal: timestamp("fecha_evento_original", { withTimezone: true }),
     creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -144,13 +160,13 @@ export const tandas = pgTable(
     id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
     eventoId: bigint("evento_id", { mode: "number" }).notNull(),
     nombre: varchar("nombre", { length: 80 }).notNull(),
-    tipo: text("tipo").notNull().default("general"),
+    tipo: text("tipo").notNull().default("general").$type<TipoTanda>(),
     // DECIMAL(12,0) en guaraníes (sin decimales) → bigint, no numeric (ver §4.1:
     // numeric llegaría como string del driver y rompería las sumas del dashboard).
     precio: bigint("precio", { mode: "number" }).notNull().default(0),
     cantidadTotal: integer("cantidad_total").notNull().default(0),
     cantidadVendida: integer("cantidad_vendida").notNull().default(0),
-    estado: text("estado").notNull().default("activa"),
+    estado: text("estado").notNull().default("activa").$type<EstadoTanda>(),
   },
   (t) => [
     index("idx_tandas_evento").on(t.eventoId),
@@ -179,7 +195,7 @@ export const asientos = pgTable(
     identificador: varchar("identificador", { length: 20 }).notNull(),
     fila: varchar("fila", { length: 10 }),
     numero: integer("numero"),
-    estado: text("estado").notNull().default("disponible"),
+    estado: text("estado").notNull().default("disponible").$type<EstadoAsiento>(),
   },
   (t) => [
     uniqueIndex("uq_asientos_tanda_identificador").on(t.tandaId, t.identificador),
@@ -217,7 +233,7 @@ export const tickets = pgTable(
     comprobante: varchar("comprobante", { length: 100 }),
     // Solo el basename (ej. "EIK-XXXX.jpg"), nunca la ruta — ver plan §3(d).
     comprobanteArchivo: varchar("comprobante_archivo", { length: 255 }),
-    estado: text("estado").notNull().default("pendiente"),
+    estado: text("estado").notNull().default("pendiente").$type<EstadoTicket>(),
     esCortesia: boolean("es_cortesia").notNull().default(false),
     reservadoHasta: timestamp("reservado_hasta", { withTimezone: true }),
     aprobadoPor: bigint("aprobado_por", { mode: "number" }),
@@ -281,9 +297,9 @@ export const pagos = pgTable(
     id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
     ticketId: bigint("ticket_id", { mode: "number" }).notNull(),
     monto: bigint("monto", { mode: "number" }).notNull(),
-    metodo: text("metodo").notNull().default("transferencia"),
+    metodo: text("metodo").notNull().default("transferencia").$type<MetodoPago>(),
     referenciaExterna: varchar("referencia_externa", { length: 120 }),
-    estado: text("estado").notNull().default("pendiente"),
+    estado: text("estado").notNull().default("pendiente").$type<EstadoPago>(),
     creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -385,7 +401,7 @@ export const organizadorSuscripciones = pgTable(
     id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
     organizadorId: bigint("organizador_id", { mode: "number" }).notNull(),
     planId: bigint("plan_id", { mode: "number" }),
-    estado: text("estado").notNull().default("activa"),
+    estado: text("estado").notNull().default("activa").$type<EstadoSuscripcion>(),
     fechaInicio: date("fecha_inicio").notNull(),
     fechaProximaFacturacion: date("fecha_proxima_facturacion"),
   },
@@ -419,7 +435,7 @@ export const liquidaciones = pgTable(
     montoComisionOSuscripcion: bigint("monto_comision_o_suscripcion", { mode: "number" })
       .notNull()
       .default(0),
-    estado: text("estado").notNull().default("pendiente"),
+    estado: text("estado").notNull().default("pendiente").$type<EstadoLiquidacion>(),
     liquidadoEn: timestamp("liquidado_en", { withTimezone: true }),
     creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -449,7 +465,7 @@ export const reembolsos = pgTable(
     ticketId: bigint("ticket_id", { mode: "number" }).notNull(),
     eventoId: bigint("evento_id", { mode: "number" }).notNull(),
     canonPagado: boolean("canon_pagado").notNull().default(false),
-    estado: text("estado").notNull().default("solicitado"),
+    estado: text("estado").notNull().default("solicitado").$type<EstadoReembolso>(),
     solicitadoEn: timestamp("solicitado_en", { withTimezone: true }).notNull().defaultNow(),
     procesadoEn: timestamp("procesado_en", { withTimezone: true }),
   },

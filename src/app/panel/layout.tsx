@@ -2,7 +2,6 @@ import { requerirSesion } from "@/lib/auth/guardas";
 import { cerrarSesionAction } from "@/lib/acciones/auth";
 import { Avatar } from "@/componentes/ui/Avatar";
 import { Boton } from "@/componentes/ui/Boton";
-import { NavTabs } from "@/componentes/ui/NavTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +38,6 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
             </form>
           </div>
         </div>
-        <NavTabs
-          items={[
-            { href: "/panel", etiqueta: "Resumen" },
-            { href: "/panel/cuenta", etiqueta: "Cuenta" },
-          ]}
-        />
       </header>
       <main className="mx-auto max-w-[1240px] p-6">{children}</main>
     </div>
