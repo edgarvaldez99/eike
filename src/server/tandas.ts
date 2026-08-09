@@ -1,8 +1,24 @@
-import { eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { asientos, eventos, tandas } from "@/db/esquema";
 import { ErrorNegocio } from "@/lib/errores";
 import type { TipoTanda } from "@/lib/constantes";
+
+export interface AsientoDisponible {
+  id: number;
+  identificador: string;
+}
+
+/** Puerto de tandas.php?accion=asientos_disponibles — para el selector de asientos del comprador. */
+export async function obtenerAsientosDisponibles(tandaId: number): Promise<AsientoDisponible[]> {
+  const filas = await db
+    .select({ id: asientos.id, identificador: asientos.identificador, fila: asientos.fila, numero: asientos.numero })
+    .from(asientos)
+    .innerJoin(tandas, eq(tandas.id, asientos.tandaId))
+    .where(and(eq(asientos.tandaId, tandaId), eq(asientos.estado, "disponible"), eq(tandas.estado, "activa")))
+    .orderBy(asc(asientos.fila), asc(asientos.numero), asc(asientos.identificador));
+  return filas.map((f) => ({ id: f.id, identificador: f.identificador }));
+}
 
 /** Etiqueta de fila estilo hoja de cálculo: 0→A, 1→B, ..., 25→Z, 26→AA, 27→AB... */
 function letraFila(indice: number): string {

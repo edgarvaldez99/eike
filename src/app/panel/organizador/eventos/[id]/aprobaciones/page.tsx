@@ -58,7 +58,17 @@ export default async function PaginaAprobaciones({
                     <td className="num right">{formatoGs(t.precio)}</td>
                     <td className="num">{formatoFecha(t.fechaCompra)}</td>
                     <td>
-                      <BotonesAprobacion ticketId={t.id} />
+                      <div className="flex flex-col items-start gap-2">
+                        <a
+                          href={`/api/comprobantes/${t.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[12.5px] text-cyan hover:underline"
+                        >
+                          Ver comprobante ↗
+                        </a>
+                        <BotonesAprobacion ticketId={t.id} />
+                      </div>
                     </td>
                   </tr>
                 ))

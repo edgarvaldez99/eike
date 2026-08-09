@@ -1,5 +1,4 @@
-import { sql } from "drizzle-orm";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { eventos, tandas, usuarios } from "@/db/esquema";
 import { ErrorNegocio } from "@/lib/errores";
@@ -98,6 +97,100 @@ export async function obtenerEventoConTandas(eventoId: number) {
     .orderBy(tandas.id);
 
   return { ...evento, organizadorNombre: organizador?.nombre ?? "—", tandas: filasTandas };
+}
+
+export interface EventoPublico {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  fechaEvento: Date;
+  lugar: string | null;
+  aficheUrl: string | null;
+  esGratuito: boolean;
+  organizadorNombre: string;
+}
+
+/** Puerto de eventos.php?accion=publicos. Solo eventos publicados y no vencidos. */
+export async function obtenerEventosPublicos(): Promise<EventoPublico[]> {
+  const { rows } = await db.execute<{
+    id: number;
+    nombre: string;
+    descripcion: string | null;
+    fecha_evento: string;
+    lugar: string | null;
+    afiche_url: string | null;
+    es_gratuito: boolean;
+    organizador_nombre: string;
+  }>(sql`
+    SELECT e.id, e.nombre, e.descripcion, e.fecha_evento, e.lugar, e.afiche_url, e.es_gratuito,
+           u.nombre AS organizador_nombre
+      FROM eventos e
+      JOIN usuarios u ON u.id = e.organizador_id
+     WHERE e.estado = 'publicado' AND e.fecha_evento >= now()
+     ORDER BY e.fecha_evento ASC
+  `);
+  return rows.map((f) => ({
+    id: f.id,
+    nombre: f.nombre,
+    descripcion: f.descripcion,
+    fechaEvento: new Date(f.fecha_evento),
+    lugar: f.lugar,
+    aficheUrl: f.afiche_url,
+    esGratuito: f.es_gratuito,
+    organizadorNombre: f.organizador_nombre,
+  }));
+}
+
+export interface TandaPublica {
+  id: number;
+  nombre: string;
+  tipo: "general" | "numerada";
+  precio: number;
+  disponibles: number;
+}
+
+export interface EventoPublicoDetalle extends EventoPublico {
+  tandas: TandaPublica[];
+}
+
+/** Puerto de eventos.php?accion=publico_detalle. Null si no existe o no está publicado. */
+export async function obtenerEventoPublicoPorId(id: number): Promise<EventoPublicoDetalle | null> {
+  const [evento] = await db
+    .select()
+    .from(eventos)
+    .where(and(eq(eventos.id, id), eq(eventos.estado, "publicado")))
+    .limit(1);
+  if (!evento) return null;
+
+  const [organizador] = await db
+    .select({ nombre: usuarios.nombre })
+    .from(usuarios)
+    .where(eq(usuarios.id, evento.organizadorId))
+    .limit(1);
+
+  const filasTandas = await db
+    .select({
+      id: tandas.id,
+      nombre: tandas.nombre,
+      tipo: tandas.tipo,
+      precio: tandas.precio,
+      disponibles: sql<number>`${tandas.cantidadTotal} - ${tandas.cantidadVendida}`,
+    })
+    .from(tandas)
+    .where(and(eq(tandas.eventoId, id), eq(tandas.estado, "activa")))
+    .orderBy(tandas.precio);
+
+  return {
+    id: evento.id,
+    nombre: evento.nombre,
+    descripcion: evento.descripcion,
+    fechaEvento: evento.fechaEvento,
+    lugar: evento.lugar,
+    aficheUrl: evento.aficheUrl,
+    esGratuito: evento.esGratuito,
+    organizadorNombre: organizador?.nombre ?? "—",
+    tandas: filasTandas.map((t) => ({ ...t, disponibles: Number(t.disponibles) })),
+  };
 }
 
 export interface DatosCrearEvento {

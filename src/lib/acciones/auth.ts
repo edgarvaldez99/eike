@@ -31,8 +31,9 @@ export async function iniciarSesionAction(
     return { ok: false, error: "Revisá los datos del formulario.", campos };
   }
 
+  let usuario;
   try {
-    await iniciarSesion(parseo.data.email, parseo.data.password);
+    usuario = await iniciarSesion(parseo.data.email, parseo.data.password);
   } catch (error) {
     return {
       ok: false,
@@ -40,6 +41,14 @@ export async function iniciarSesionAction(
     };
   }
 
+  // organizador/superadmin -> su panel de eventos; comprador -> sus entradas;
+  // staff -> el escáner (Fase 6, todavía no existe: cae al panel genérico).
+  if (usuario.rol === "organizador" || usuario.rol === "superadmin") {
+    redirect("/panel/organizador");
+  }
+  if (usuario.rol === "comprador") {
+    redirect("/panel/mis-entradas");
+  }
   redirect("/panel");
 }
 

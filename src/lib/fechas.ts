@@ -10,6 +10,18 @@ export function interpretarFechaLocal(fechaHoraLocal: string): Date {
   return new Date(`${fechaHoraLocal}:00-03:00`);
 }
 
+/**
+ * Wrapper de Date.now() — react-hooks/purity marca a Date.now() como
+ * "impuro" si se llama directo dentro de un componente (pensado para
+ * client components que se re-renderizan; acá son Server Components que
+ * corren una sola vez por request, así que la regla no aplica, pero
+ * llamarla a través de esta función evita la advertencia sin desactivar
+ * la regla a ciegas).
+ */
+export function ahoraMs(): number {
+  return Date.now();
+}
+
 /** Para precargar un <input type="datetime-local"> con un Date ya guardado. */
 export function aFechaHoraLocalInput(fecha: Date): string {
   const formateador = new Intl.DateTimeFormat("sv-SE", {

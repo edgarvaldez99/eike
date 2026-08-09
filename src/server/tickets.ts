@@ -1,10 +1,10 @@
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { asientos, eventos, tandas, tickets } from "@/db/esquema";
-import { eq } from "drizzle-orm";
 import { ErrorNegocio } from "@/lib/errores";
 import type { UsuarioSesion } from "@/lib/auth/sesion";
 import { generarCodigoTicket } from "@/lib/qr";
+import { escribirComprobante, type ComprobantePreparado } from "@/lib/archivos/comprobante";
 
 /** "Hoy" calendario en Asunción, como epoch de días (medianoche UTC de ese día). */
 function fechaSoloDiaAsuncion(fecha: Date): number {
@@ -408,4 +408,278 @@ export async function obtenerDetalleTickets(
     precio: Number(f.precio),
     asientoIdentificador: f.asiento_identificador,
   }));
+}
+
+// ============================================================================
+// Compra pública (Fase 5) — puerto de tickets.php?accion=comprar
+// ============================================================================
+
+const MINUTOS_RESERVA = 30; // igual que config.php: reserva_minutos
+
+export interface DatosComprar {
+  eventoId: number;
+  tandaId: number;
+  nombreComprador: string;
+  cedula: string | null;
+  email: string;
+  contacto: string | null;
+  /** Solo se respeta si hay comprador logueado (ver tickets.php: invitado = auto-asignado). */
+  asientoId: number | null;
+  comprobanteTexto: string | null;
+  /** Ya validado en memoria (ver lib/archivos/comprobante.ts) antes de llamar acá. */
+  comprobante: ComprobantePreparado | null;
+}
+
+/**
+ * Compra de un ticket, invitado o comprador logueado. Es la transacción más
+ * delicada del sistema — puerto 1:1 de tickets.php?accion=comprar, con dos
+ * mejoras deliberadas (ver plan de migración §3(a) y §1.6/§7.4):
+ *  - `FOR UPDATE SKIP LOCKED` al asignar un asiento automático (sin pedir uno
+ *    específico): compradores simultáneos ya no hacen fila por el mismo
+ *    asiento libre más bajo, cada uno toma uno distinto sin esperar.
+ *  - El comprobante se escribe a disco DESPUÉS del COMMIT, nunca antes: si
+ *    la compra falla y hace ROLLBACK, jamás queda un archivo huérfano sin
+ *    ticket asociado (el PHP viejo sí tenía ese riesgo).
+ */
+export async function comprarTicket(
+  compradorId: number | null,
+  datos: DatosComprar,
+): Promise<typeof tickets.$inferSelect> {
+  const creado = await db.transaction(async (tx) => {
+    const [evento] = await tx
+      .select()
+      .from(eventos)
+      .where(and(eq(eventos.id, datos.eventoId), eq(eventos.estado, "publicado")))
+      .limit(1);
+    if (!evento) {
+      throw new ErrorNegocio("Ese evento no está disponible para la venta.");
+    }
+
+    const [tanda] = await tx
+      .select()
+      .from(tandas)
+      .where(and(eq(tandas.id, datos.tandaId), eq(tandas.eventoId, datos.eventoId), eq(tandas.estado, "activa")))
+      .for("update");
+    if (!tanda) {
+      throw new ErrorNegocio("Esa tanda no está disponible.");
+    }
+    if (tanda.cantidadVendida >= tanda.cantidadTotal) {
+      throw new ErrorNegocio("Esa tanda está agotada.");
+    }
+
+    const esGratis = tanda.precio === 0;
+    let asientoId: number | null = null;
+
+    if (tanda.tipo === "numerada") {
+      let asiento: typeof asientos.$inferSelect | undefined;
+      if (compradorId !== null && datos.asientoId !== null) {
+        [asiento] = await tx
+          .select()
+          .from(asientos)
+          .where(
+            and(
+              eq(asientos.id, datos.asientoId),
+              eq(asientos.tandaId, datos.tandaId),
+              eq(asientos.estado, "disponible"),
+            ),
+          )
+          .for("update");
+      } else {
+        [asiento] = await tx
+          .select()
+          .from(asientos)
+          .where(and(eq(asientos.tandaId, datos.tandaId), eq(asientos.estado, "disponible")))
+          .orderBy(asientos.id)
+          .limit(1)
+          .for("update", { skipLocked: true });
+      }
+      if (!asiento) {
+        throw new ErrorNegocio("Ese asiento ya no está disponible.");
+      }
+      asientoId = asiento.id;
+      await tx
+        .update(asientos)
+        .set({ estado: esGratis ? "vendido" : "reservado" })
+        .where(eq(asientos.id, asientoId));
+    }
+
+    if (!esGratis && !datos.comprobante) {
+      throw new ErrorNegocio("Hace falta subir el comprobante de pago.");
+    }
+
+    const codigo = generarCodigoTicket();
+    const estadoTicket = esGratis ? "disponible" : "pendiente";
+    const reservadoHasta = esGratis ? null : new Date(Date.now() + MINUTOS_RESERVA * 60 * 1000);
+    const comprobanteArchivo =
+      !esGratis && datos.comprobante ? `${codigo}.${datos.comprobante.extension}` : null;
+
+    const [fila] = await tx
+      .insert(tickets)
+      .values({
+        codigo,
+        eventoId: datos.eventoId,
+        tandaId: datos.tandaId,
+        asientoId,
+        compradorId,
+        nombreComprador: datos.nombreComprador,
+        cedula: datos.cedula,
+        email: datos.email,
+        contacto: datos.contacto,
+        comprobante: datos.comprobanteTexto,
+        comprobanteArchivo,
+        estado: estadoTicket,
+        reservadoHasta,
+      })
+      .returning();
+
+    await tx
+      .update(tandas)
+      .set({ cantidadVendida: sql`${tandas.cantidadVendida} + 1` })
+      .where(eq(tandas.id, datos.tandaId));
+
+    return fila;
+  });
+
+  if (datos.comprobante && creado.comprobanteArchivo) {
+    await escribirComprobante(datos.comprobante, creado.codigo);
+  }
+
+  return creado;
+}
+
+export interface MiTicket {
+  id: number;
+  codigo: string;
+  estado: string;
+  nombreComprador: string;
+  cedula: string | null;
+  fechaCompra: Date;
+  reservadoHasta: Date | null;
+  eventoId: number;
+  eventoNombre: string;
+  fechaEvento: Date;
+  lugar: string | null;
+  aficheUrl: string | null;
+  organizadorNombre: string;
+  tandaNombre: string;
+  precio: number;
+  asientoIdentificador: string | null;
+}
+
+/** Puerto de tickets.php?accion=mis_tickets. */
+export async function obtenerMisTickets(compradorId: number): Promise<MiTicket[]> {
+  const { rows } = await db.execute<{
+    id: number;
+    codigo: string;
+    estado: string;
+    nombre_comprador: string;
+    cedula: string | null;
+    fecha_compra: string;
+    reservado_hasta: string | null;
+    evento_id: number;
+    evento_nombre: string;
+    fecha_evento: string;
+    lugar: string | null;
+    afiche_url: string | null;
+    organizador_nombre: string;
+    tanda_nombre: string;
+    precio: number;
+    asiento_identificador: string | null;
+  }>(sql`
+    SELECT tk.id, tk.codigo, tk.estado, tk.nombre_comprador, tk.cedula, tk.fecha_compra, tk.reservado_hasta,
+           e.id AS evento_id, e.nombre AS evento_nombre, e.fecha_evento, e.lugar, e.afiche_url,
+           u.nombre AS organizador_nombre,
+           td.nombre AS tanda_nombre, td.precio, a.identificador AS asiento_identificador
+      FROM tickets tk
+      JOIN eventos e ON e.id = tk.evento_id
+      JOIN usuarios u ON u.id = e.organizador_id
+      JOIN tandas td ON td.id = tk.tanda_id
+      LEFT JOIN asientos a ON a.id = tk.asiento_id
+     WHERE tk.comprador_id = ${compradorId}
+     ORDER BY tk.fecha_compra DESC
+  `);
+  return rows.map((f) => ({
+    id: f.id,
+    codigo: f.codigo,
+    estado: f.estado,
+    nombreComprador: f.nombre_comprador,
+    cedula: f.cedula,
+    fechaCompra: new Date(f.fecha_compra),
+    reservadoHasta: f.reservado_hasta ? new Date(f.reservado_hasta) : null,
+    eventoId: f.evento_id,
+    eventoNombre: f.evento_nombre,
+    fechaEvento: new Date(f.fecha_evento),
+    lugar: f.lugar,
+    aficheUrl: f.afiche_url,
+    organizadorNombre: f.organizador_nombre,
+    tandaNombre: f.tanda_nombre,
+    precio: Number(f.precio),
+    asientoIdentificador: f.asiento_identificador,
+  }));
+}
+
+export interface TicketParaMostrar extends MiTicket {
+  compradorId: number | null;
+}
+
+/**
+ * Ticket por código, para /entradas/[codigo]. El código es en sí mismo la
+ * credencial (48 bits de entropía, igual criterio que el sistema PHP: nunca
+ * hubo un endpoint separado "ver por código" con control de acceso — el
+ * ticket se mostraba directo tras la compra). La página se marca `noindex`.
+ */
+export async function obtenerTicketPorCodigo(codigo: string): Promise<TicketParaMostrar | null> {
+  const { rows } = await db.execute<{
+    id: number;
+    codigo: string;
+    estado: string;
+    nombre_comprador: string;
+    cedula: string | null;
+    comprador_id: number | null;
+    fecha_compra: string;
+    reservado_hasta: string | null;
+    evento_id: number;
+    evento_nombre: string;
+    fecha_evento: string;
+    lugar: string | null;
+    afiche_url: string | null;
+    organizador_nombre: string;
+    tanda_nombre: string;
+    precio: number;
+    asiento_identificador: string | null;
+  }>(sql`
+    SELECT tk.id, tk.codigo, tk.estado, tk.nombre_comprador, tk.cedula, tk.comprador_id,
+           tk.fecha_compra, tk.reservado_hasta,
+           e.id AS evento_id, e.nombre AS evento_nombre, e.fecha_evento, e.lugar, e.afiche_url,
+           u.nombre AS organizador_nombre,
+           td.nombre AS tanda_nombre, td.precio, a.identificador AS asiento_identificador
+      FROM tickets tk
+      JOIN eventos e ON e.id = tk.evento_id
+      JOIN usuarios u ON u.id = e.organizador_id
+      JOIN tandas td ON td.id = tk.tanda_id
+      LEFT JOIN asientos a ON a.id = tk.asiento_id
+     WHERE tk.codigo = ${codigo}
+     LIMIT 1
+  `);
+  const f = rows[0];
+  if (!f) return null;
+  return {
+    id: f.id,
+    codigo: f.codigo,
+    estado: f.estado,
+    nombreComprador: f.nombre_comprador,
+    cedula: f.cedula,
+    compradorId: f.comprador_id,
+    fechaCompra: new Date(f.fecha_compra),
+    reservadoHasta: f.reservado_hasta ? new Date(f.reservado_hasta) : null,
+    eventoId: f.evento_id,
+    eventoNombre: f.evento_nombre,
+    fechaEvento: new Date(f.fecha_evento),
+    lugar: f.lugar,
+    aficheUrl: f.afiche_url,
+    organizadorNombre: f.organizador_nombre,
+    tandaNombre: f.tanda_nombre,
+    precio: Number(f.precio),
+    asientoIdentificador: f.asiento_identificador,
+  };
 }

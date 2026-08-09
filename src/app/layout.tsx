@@ -16,10 +16,23 @@ export const metadata: Metadata = {
   },
 };
 
+const jsonLdSitio = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "Eike",
+  url: "https://eike.com.py",
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es-PY" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSitio) }}
+        />
+        {children}
+      </body>
     </html>
   );
 }
