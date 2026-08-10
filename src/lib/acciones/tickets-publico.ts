@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { usuarioActual } from "@/lib/auth/sesion";
 import { esquemaComprar } from "@/lib/validaciones/tickets";
 import { prepararComprobante } from "@/lib/archivos/comprobante";
+import { ipCliente, limitar } from "@/lib/rateLimit";
 import { comprarTicket } from "@/server/tickets";
 import type { ResultadoAccion } from "./marco";
 
@@ -16,6 +17,14 @@ export async function comprarTicketAction(
   _estadoPrevio: ResultadoAccion | null,
   fd: FormData,
 ): Promise<ResultadoAccion> {
+  // Por IP, no por comprador: un invitado no tiene cuenta todavía, así que
+  // no hay otra identidad estable para frenar un bot reintentando compras.
+  const ip = await ipCliente();
+  const { permitido, reintentarEnSegundos } = limitar(`comprar:${ip}`, { maximo: 20, ventanaMs: 60 * 1000 });
+  if (!permitido) {
+    return { ok: false, error: `Demasiados intentos. Probá de nuevo en ${reintentarEnSegundos}s.` };
+  }
+
   const usuario = await usuarioActual();
   // Un organizador/staff logueado no "compra" con su propia cuenta (igual que el PHP).
   const compradorSesion = usuario && (usuario.rol === "comprador" || usuario.rol === "superadmin") ? usuario : null;

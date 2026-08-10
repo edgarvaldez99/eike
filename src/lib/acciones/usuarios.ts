@@ -5,6 +5,7 @@ import { esquemaRegistroComprador } from "@/lib/validaciones/usuarios";
 import { registrarComprador } from "@/server/usuarios";
 import { iniciarSesion } from "@/lib/auth/sesion";
 import { rutaInternaSegura } from "@/lib/rutas";
+import { ipCliente, limitar } from "@/lib/rateLimit";
 import type { ResultadoAccion } from "./marco";
 
 /**
@@ -32,6 +33,25 @@ export async function registrarCompradorAction(
       if (!(clave in campos)) campos[clave] = issue.message;
     }
     return { ok: false, error: "Revisá los datos del formulario.", campos };
+  }
+
+  // El checkbox tiene "required" en el HTML, pero eso es solo del lado del
+  // navegador — un POST directo (bot, curl, JS deshabilitado) lo saltea sin
+  // este chequeo server-side. Mismo patrón que comprarTicketAction.
+  if (!parseo.data.tyc_aceptado) {
+    return {
+      ok: false,
+      error: "Hay que aceptar los Términos y Condiciones / Política de Privacidad.",
+    };
+  }
+
+  const ip = await ipCliente();
+  const { permitido, reintentarEnSegundos } = limitar(`registro:${ip}`, {
+    maximo: 5,
+    ventanaMs: 60 * 60 * 1000,
+  });
+  if (!permitido) {
+    return { ok: false, error: `Demasiados intentos. Probá de nuevo en ${reintentarEnSegundos}s.` };
   }
 
   const volver = rutaInternaSegura(fd.get("volver"));

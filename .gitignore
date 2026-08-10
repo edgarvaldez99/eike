@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# .env.test no tiene secretos reales (base y SESSION_SECRET son solo para
+# tests locales) — se commitea para que "pnpm test" funcione sin setup extra.
+!.env.test
 
 # vercel
 .vercel

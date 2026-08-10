@@ -15,7 +15,10 @@
     "db:studio": "drizzle-kit studio",
     "seed": "tsx --env-file=.env scripts/seed.ts",
     "seed:superadmin": "tsx --env-file=.env scripts/seed-superadmin.ts",
-    "migrar": "tsx --env-file=.env scripts/migrar-mariadb.ts"
+    "migrar": "tsx --env-file=.env scripts/migrar-mariadb.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -39,13 +42,15 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.10",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "mysql2": "^3.23.2",
     "tailwindcss": "^4",
     "tsx": "^4.23.11",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   },
   "packageManager": "pnpm@11.21.0"
 }

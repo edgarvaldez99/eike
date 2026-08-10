@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { cerrarSesion, iniciarSesion } from "@/lib/auth/sesion";
+import { ipCliente, limitar } from "@/lib/rateLimit";
 import type { ResultadoAccion } from "./marco";
 
 /**
@@ -29,6 +30,21 @@ export async function iniciarSesionAction(
       if (!(clave in campos)) campos[clave] = issue.message;
     }
     return { ok: false, error: "Revisá los datos del formulario.", campos };
+  }
+
+  // Por IP+email (no solo IP): así un ataque de fuerza bruta contra UNA
+  // cuenta se frena sin bloquear a todos los demás usuarios detrás de la
+  // misma IP (oficinas, redes móviles compartidas, etc.).
+  const ip = await ipCliente();
+  const { permitido, reintentarEnSegundos } = limitar(`login:${ip}:${parseo.data.email.toLowerCase()}`, {
+    maximo: 8,
+    ventanaMs: 10 * 60 * 1000,
+  });
+  if (!permitido) {
+    return {
+      ok: false,
+      error: `Demasiados intentos. Probá de nuevo en ${reintentarEnSegundos}s.`,
+    };
   }
 
   let usuario;
