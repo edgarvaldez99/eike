@@ -60,6 +60,25 @@ reales — una cookie `Secure` se descarta en HTTP plano). Backups diarios
 (`docker/backup.sh`, cron 6am) de la base y los uploads van a
 `gs://eike-503422-backups` con expiración a 30 días.
 
+## Cutover a `eike.com.py` (Fase 9)
+
+No hay datos reales que migrar de MariaDB (el PHP viejo solo tenía datos de
+prueba), así que el cutover se reduce a apuntar el dominio y activar HTTPS.
+El DNS de `eike.com.py` lo administra un tercero — apenas el registro A
+apunte a `34.56.167.44` (la IP fija de `eike-vm`), correr **en la VM**:
+
+```bash
+cd /opt/eike
+./activar-dominio.sh
+```
+
+El script verifica que el DNS ya resuelva acá (si no, aborta sin tocar
+nada), activa `docker/Caddyfile.dominio` (Caddy pide el certificado HTTPS a
+Let's Encrypt solo, y redirige HTTP→HTTPS automático), y recién ahí prende
+`COOKIE_SECURE=true` — hacerlo antes rompería el login (cookie `Secure`
+descartada en HTTP plano). Al final falta un solo paso manual, fuera de esta
+VM: apagar (no borrar) el PHP viejo en el hosting compartido.
+
 ## Estructura
 
 - `src/app/` — rutas (App Router): `(publico)` indexable/SSR, `(panel)` privado.

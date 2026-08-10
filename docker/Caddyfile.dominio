@@ -1,0 +1,18 @@
+# Fase 9/10 — para usar UNA VEZ que eike.com.py resuelva a esta VM
+# (34.56.167.44). No se activa solo: hay que reemplazar el contenido de
+# docker/Caddyfile con este (o copiar este archivo encima) y redeployar.
+#
+# Caddy detecta que el address es un hostname real (no ":80" ni una IP) y
+# pide el certificado HTTPS automático a Let's Encrypt — necesita que el
+# DNS ya apunte acá y que los puertos 80/443 estén abiertos (ya lo están,
+# reglas allow-http / allow-https creadas en la Fase 7). También redirige
+# HTTP -> HTTPS automáticamente, sin configuración extra.
+eike.com.py, www.eike.com.py {
+	reverse_proxy web:3000
+	encode gzip
+
+	log {
+		output stdout
+		format console
+	}
+}
