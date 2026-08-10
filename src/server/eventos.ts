@@ -267,3 +267,110 @@ export async function publicarEvento(evento: typeof eventos.$inferSelect) {
   }
   await db.update(eventos).set({ estado: "publicado" }).where(eq(eventos.id, evento.id));
 }
+
+// ============================================================================
+// Superadmin — puerto de eventos.php
+// ============================================================================
+
+export interface EventoGlobal {
+  id: number;
+  nombre: string;
+  fechaEvento: Date;
+  lugar: string | null;
+  estado: EstadoEvento;
+  esGratuito: boolean;
+  organizadorId: number;
+  organizadorNombre: string;
+  ticketsVendidos: number;
+  ingresos: number;
+  sobrantes: number;
+}
+
+/** Puerto de eventos.php?accion=listar (superadmin: todos los eventos de la plataforma). */
+export async function obtenerEventosGlobal(): Promise<EventoGlobal[]> {
+  const { rows } = await db.execute<{
+    id: number;
+    nombre: string;
+    fecha_evento: string;
+    lugar: string | null;
+    estado: EstadoEvento;
+    es_gratuito: boolean;
+    organizador_id: number;
+    organizador_nombre: string;
+    tickets_vendidos: number;
+    ingresos: number;
+    sobrantes: number;
+  }>(sql`
+    SELECT e.id, e.nombre, e.fecha_evento, e.lugar, e.estado, e.es_gratuito,
+           u.id AS organizador_id, u.nombre AS organizador_nombre,
+           COALESCE(v.tickets_vendidos, 0) AS tickets_vendidos,
+           COALESCE(v.ingresos, 0) AS ingresos,
+           COALESCE(s.sobrantes, 0) AS sobrantes
+      FROM eventos e
+      JOIN usuarios u ON u.id = e.organizador_id
+      LEFT JOIN (
+        SELECT t.evento_id, COUNT(*) AS tickets_vendidos, SUM(td.precio) AS ingresos
+          FROM tickets t
+          JOIN tandas td ON td.id = t.tanda_id
+         WHERE t.estado IN ('disponible', 'usado')
+         GROUP BY t.evento_id
+      ) v ON v.evento_id = e.id
+      LEFT JOIN (
+        SELECT evento_id, SUM(cantidad_total - cantidad_vendida) AS sobrantes
+          FROM tandas
+         GROUP BY evento_id
+      ) s ON s.evento_id = e.id
+     ORDER BY e.fecha_evento DESC
+  `);
+  return rows.map((f) => ({
+    id: f.id,
+    nombre: f.nombre,
+    fechaEvento: new Date(f.fecha_evento),
+    lugar: f.lugar,
+    estado: f.estado,
+    esGratuito: f.es_gratuito,
+    organizadorId: f.organizador_id,
+    organizadorNombre: f.organizador_nombre,
+    ticketsVendidos: Number(f.tickets_vendidos),
+    ingresos: Number(f.ingresos),
+    sobrantes: Number(f.sobrantes),
+  }));
+}
+
+export interface RankingOrganizador {
+  organizadorId: number;
+  nombre: string;
+  email: string;
+  ticketsVendidos: number;
+  ingresos: number;
+}
+
+/** Puerto de eventos.php?accion=ranking_organizadores. */
+export async function obtenerRankingOrganizadores(): Promise<RankingOrganizador[]> {
+  const { rows } = await db.execute<{
+    organizador_id: number;
+    nombre: string;
+    email: string;
+    tickets_vendidos: number;
+    ingresos: number;
+  }>(sql`
+    SELECT u.id AS organizador_id, u.nombre, u.email,
+           COUNT(tk.id) AS tickets_vendidos,
+           COALESCE(SUM(td.precio), 0) AS ingresos
+      FROM usuarios u
+      LEFT JOIN eventos e ON e.organizador_id = u.id
+      LEFT JOIN tickets tk ON tk.evento_id = e.id AND tk.estado IN ('disponible', 'usado')
+      LEFT JOIN tandas td ON td.id = tk.tanda_id
+     WHERE u.rol = 'organizador'
+     GROUP BY u.id
+     ORDER BY ingresos DESC, tickets_vendidos DESC
+     LIMIT 20
+  `);
+  return rows.map((f) => ({
+    organizadorId: f.organizador_id,
+    nombre: f.nombre,
+    email: f.email,
+    ticketsVendidos: Number(f.tickets_vendidos),
+    ingresos: Number(f.ingresos),
+  }));
+}

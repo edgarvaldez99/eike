@@ -683,3 +683,148 @@ export async function obtenerTicketPorCodigo(codigo: string): Promise<TicketPara
     asientoIdentificador: f.asiento_identificador,
   };
 }
+
+// ============================================================================
+// Superadmin (Fase 6) — puerto de tickets.php
+// ============================================================================
+
+export interface RankingComprador {
+  compradorId: number;
+  nombre: string;
+  email: string;
+  ticketsComprados: number;
+  totalGastado: number;
+}
+
+/** Puerto de tickets.php?accion=ranking_compradores. */
+export async function obtenerRankingCompradores(): Promise<RankingComprador[]> {
+  const { rows } = await db.execute<{
+    comprador_id: number;
+    nombre: string;
+    email: string;
+    tickets_comprados: number;
+    total_gastado: number;
+  }>(sql`
+    SELECT u.id AS comprador_id, u.nombre, u.email,
+           COUNT(*) AS tickets_comprados,
+           COALESCE(SUM(td.precio), 0) AS total_gastado
+      FROM tickets tk
+      JOIN tandas td ON td.id = tk.tanda_id
+      JOIN usuarios u ON u.id = tk.comprador_id
+     WHERE tk.estado IN ('disponible', 'usado')
+     GROUP BY u.id
+     ORDER BY total_gastado DESC, tickets_comprados DESC
+     LIMIT 20
+  `);
+  return rows.map((f) => ({
+    compradorId: f.comprador_id,
+    nombre: f.nombre,
+    email: f.email,
+    ticketsComprados: Number(f.tickets_comprados),
+    totalGastado: Number(f.total_gastado),
+  }));
+}
+
+export interface ColaPendiente {
+  organizadorId: number;
+  organizadorNombre: string;
+  cantidadPendientes: number;
+  horasPromedioEspera: number;
+  horasMaxEspera: number;
+}
+
+/** Puerto de tickets.php?accion=cola_pendientes. */
+export async function obtenerColaPendientes(): Promise<ColaPendiente[]> {
+  const { rows } = await db.execute<{
+    organizador_id: number;
+    organizador_nombre: string;
+    cantidad_pendientes: number;
+    horas_promedio_espera: number;
+    horas_max_espera: number;
+  }>(sql`
+    SELECT u.id AS organizador_id, u.nombre AS organizador_nombre,
+           COUNT(*) AS cantidad_pendientes,
+           ROUND(AVG(EXTRACT(EPOCH FROM (now() - tk.fecha_compra)) / 3600)::numeric, 1) AS horas_promedio_espera,
+           ROUND((MAX(EXTRACT(EPOCH FROM (now() - tk.fecha_compra))) / 3600)::numeric, 1) AS horas_max_espera
+      FROM tickets tk
+      JOIN eventos e ON e.id = tk.evento_id
+      JOIN usuarios u ON u.id = e.organizador_id
+     WHERE tk.estado = 'pendiente'
+     GROUP BY u.id
+     ORDER BY horas_max_espera DESC
+  `);
+  return rows.map((f) => ({
+    organizadorId: f.organizador_id,
+    organizadorNombre: f.organizador_nombre,
+    cantidadPendientes: Number(f.cantidad_pendientes),
+    horasPromedioEspera: Number(f.horas_promedio_espera),
+    horasMaxEspera: Number(f.horas_max_espera),
+  }));
+}
+
+export interface FiltroHistorialGlobal {
+  eventoId?: number;
+  organizadorId?: number;
+  estado?: string;
+  busqueda?: string;
+}
+
+export interface TicketHistorialGlobal {
+  id: number;
+  codigo: string;
+  nombreComprador: string;
+  cedula: string | null;
+  email: string;
+  eventoNombre: string;
+  organizadorNombre: string;
+  tandaNombre: string;
+  precio: number;
+  estado: string;
+  fechaCompra: Date;
+}
+
+/** Puerto de tickets.php?accion=detalle_tickets sin evento_id (vista global del superadmin). */
+export async function obtenerHistorialGlobal(filtro: FiltroHistorialGlobal): Promise<TicketHistorialGlobal[]> {
+  const busqueda = filtro.busqueda ? `%${filtro.busqueda}%` : null;
+  const { rows } = await db.execute<{
+    id: number;
+    codigo: string;
+    nombre_comprador: string;
+    cedula: string | null;
+    email: string;
+    evento_nombre: string;
+    organizador_nombre: string;
+    tanda_nombre: string;
+    precio: number;
+    estado: string;
+    fecha_compra: string;
+  }>(sql`
+    SELECT tk.id, tk.codigo, tk.nombre_comprador, tk.cedula, tk.email,
+           e.nombre AS evento_nombre, u.nombre AS organizador_nombre,
+           td.nombre AS tanda_nombre, td.precio, tk.estado, tk.fecha_compra
+      FROM tickets tk
+      JOIN eventos e ON e.id = tk.evento_id
+      JOIN usuarios u ON u.id = e.organizador_id
+      JOIN tandas td ON td.id = tk.tanda_id
+     WHERE 1 = 1
+       ${filtro.eventoId ? sql`AND tk.evento_id = ${filtro.eventoId}` : sql``}
+       ${filtro.organizadorId ? sql`AND e.organizador_id = ${filtro.organizadorId}` : sql``}
+       ${filtro.estado ? sql`AND tk.estado = ${filtro.estado}` : sql``}
+       ${busqueda ? sql`AND (tk.nombre_comprador ILIKE ${busqueda} OR tk.cedula ILIKE ${busqueda} OR tk.email ILIKE ${busqueda})` : sql``}
+     ORDER BY tk.fecha_compra DESC
+     LIMIT 500
+  `);
+  return rows.map((f) => ({
+    id: f.id,
+    codigo: f.codigo,
+    nombreComprador: f.nombre_comprador,
+    cedula: f.cedula,
+    email: f.email,
+    eventoNombre: f.evento_nombre,
+    organizadorNombre: f.organizador_nombre,
+    tandaNombre: f.tanda_nombre,
+    precio: Number(f.precio),
+    estado: f.estado,
+    fechaCompra: new Date(f.fecha_compra),
+  }));
+}
