@@ -1,0 +1,59 @@
+# Producción en eike-vm (e2-micro, 1 GB RAM). Se levanta con:
+#   docker compose -f docker/compose.prod.yml pull
+#   docker compose -f docker/compose.prod.yml up -d
+# Variables en /opt/eike/.env (no se commitea — ver .env.example).
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: eike
+      POSTGRES_USER: eike
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Asuncion
+      PGTZ: America/Asuncion
+    # shared_buffers acotado: con Next + Caddy + Postgres en 1 GB de RAM,
+    # el valor por defecto de Postgres (128MB) ya es razonable, pero lo
+    # fijamos explícito para no depender de detección automática de RAM.
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=30"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eike"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    image: us-central1-docker.pkg.dev/eike-503422/eike/web:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://eike:${POSTGRES_PASSWORD}@db:5432/eike
+      SESSION_SECRET: ${SESSION_SECRET}
+      UPLOADS_DIR: /app/uploads
+      SITE_URL: ${SITE_URL}
+      NODE_OPTIONS: --max-old-space-size=384
+    volumes:
+      - uploads:/app/uploads
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

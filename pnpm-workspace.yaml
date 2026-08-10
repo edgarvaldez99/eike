@@ -1,3 +1,10 @@
+# allowBuilds queda comiteado a propósito: sin esto, "pnpm install
+# --frozen-lockfile" no interactivo (Docker/CI) corta con
+# ERR_PNPM_IGNORED_BUILDS aunque onlyBuiltDependencies ya los declare —
+# hace falta la aprobación explícita una vez ("pnpm approve-builds --all").
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
 onlyBuiltDependencies:
   - esbuild
   - sharp

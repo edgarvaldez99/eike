@@ -1,0 +1,14 @@
+# Fase 7: pruebas por IP, sin dominio todavía — por eso ":80" a secas
+# (una IP o "localhost" como address sí desactivaría TLS automático, pero
+# ":80" es más simple y no ata el Caddyfile a la IP de esta VM en particular).
+# Fase 10 (cutover): cambiar a "eike.com.py" para que Caddy pida el
+# certificado HTTPS automáticamente — una sola línea.
+:80 {
+	reverse_proxy web:3000
+	encode gzip
+
+	log {
+		output stdout
+		format console
+	}
+}

@@ -40,7 +40,12 @@ const opcionesSesion: SessionOptions = {
   ttl: 8 * 60 * 60,
   cookieOptions: {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Deliberadamente NO atado a NODE_ENV: la imagen de producción corre con
+    // NODE_ENV=production desde la Fase 7 (pruebas por IP, sin HTTPS
+    // todavía), y una cookie "Secure" se descarta en conexiones HTTP planas
+    // — el login quedaría roto hasta el cutover. COOKIE_SECURE se prende
+    // en la Fase 10 cuando Caddy sirva con TLS real (dominio + HTTPS).
+    secure: process.env.COOKIE_SECURE === "true",
     sameSite: "lax",
     path: "/",
   },

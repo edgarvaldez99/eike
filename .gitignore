@@ -44,4 +44,5 @@ next-env.d.ts
 # eike: datos locales de desarrollo (nunca se suben — ver docker/compose.dev.yml)
 /.data/
 /uploads/
+/.pnpm-store/
 
