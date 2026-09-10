@@ -2,23 +2,29 @@
 
 import { useActionState } from "react";
 import { eliminarTandaAction } from "@/lib/acciones/tandas";
-import { Boton } from "@/componentes/ui/Boton";
+import { BotonConConfirmacion } from "@/componentes/ui/BotonConConfirmacion";
 
 export function BotonEliminarTanda({ tandaId }: { tandaId: number }) {
   const [estado, accion, pendiente] = useActionState(eliminarTandaAction, null);
+  const idForm = `eliminar-tanda-${tandaId}`;
 
   return (
-    <form
-      action={accion}
-      onSubmit={(e) => {
-        if (!confirm("¿Eliminar esta tanda? Esto no se puede deshacer.")) e.preventDefault();
-      }}
-    >
-      <input type="hidden" name="id" value={tandaId} />
+    <div className="flex flex-col gap-1">
+      <form id={idForm} action={accion}>
+        <input type="hidden" name="id" value={tandaId} />
+      </form>
       {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
-      <Boton type="submit" variante="ghost" tamano="sm" disabled={pendiente}>
+      <BotonConConfirmacion
+        formId={idForm}
+        variante="ghost"
+        tamano="sm"
+        disabled={pendiente}
+        tituloModal="Eliminar tanda"
+        mensaje="¿Eliminar esta tanda? Esto no se puede deshacer."
+        etiquetaConfirmar="Sí, eliminar"
+      >
         {pendiente ? "…" : "Eliminar"}
-      </Boton>
-    </form>
+      </BotonConConfirmacion>
+    </div>
   );
 }

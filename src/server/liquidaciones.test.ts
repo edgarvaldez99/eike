@@ -15,10 +15,10 @@ describe("resumenOrganizador", () => {
     const eventoId = await crearEvento({ organizadorId });
     const tandaId = await crearTanda({ eventoId, precio: 100000 });
 
-    await crearTicket({ eventoId, tandaId, estado: "disponible" });
-    await crearTicket({ eventoId, tandaId, estado: "usado" });
-    await crearTicket({ eventoId, tandaId, estado: "pendiente" });
-    await crearTicket({ eventoId, tandaId, estado: "anulado" });
+    await crearTicket({ eventoId, tandaId, estado: "disponible", precioUnitario: 100000 });
+    await crearTicket({ eventoId, tandaId, estado: "usado", precioUnitario: 100000 });
+    await crearTicket({ eventoId, tandaId, estado: "pendiente", precioUnitario: 100000 });
+    await crearTicket({ eventoId, tandaId, estado: "anulado", precioUnitario: 100000 });
 
     const resumen = await resumenOrganizador(organizadorId);
 
@@ -30,8 +30,8 @@ describe("resumenOrganizador", () => {
     const organizadorId = await crearUsuario({ rol: "organizador" });
     const eventoId = await crearEvento({ organizadorId });
     const tandaId = await crearTanda({ eventoId, precio: 100000 });
-    await crearTicket({ eventoId, tandaId, estado: "usado" });
-    await crearTicket({ eventoId, tandaId, estado: "usado" });
+    await crearTicket({ eventoId, tandaId, estado: "usado", precioUnitario: 100000 });
+    await crearTicket({ eventoId, tandaId, estado: "usado", precioUnitario: 100000 });
 
     await crearLiquidacion({
       organizadorId,
@@ -52,7 +52,7 @@ describe("resumenOrganizador", () => {
     const organizadorId = await crearUsuario({ rol: "organizador" });
     const eventoId = await crearEvento({ organizadorId });
     const tandaId = await crearTanda({ eventoId, precio: 50000 });
-    await crearTicket({ eventoId, tandaId, estado: "usado" });
+    await crearTicket({ eventoId, tandaId, estado: "usado", precioUnitario: 50000 });
 
     await crearLiquidacion({
       organizadorId,
@@ -73,8 +73,8 @@ describe("resumenOrganizador", () => {
     const ev2 = await crearEvento({ organizadorId: org2 });
     const t1 = await crearTanda({ eventoId: ev1, precio: 100000 });
     const t2 = await crearTanda({ eventoId: ev2, precio: 300000 });
-    await crearTicket({ eventoId: ev1, tandaId: t1, estado: "usado" });
-    await crearTicket({ eventoId: ev2, tandaId: t2, estado: "usado" });
+    await crearTicket({ eventoId: ev1, tandaId: t1, estado: "usado", precioUnitario: 100000 });
+    await crearTicket({ eventoId: ev2, tandaId: t2, estado: "usado", precioUnitario: 300000 });
 
     const global = await resumenOrganizador(null);
     expect(global.ingresosConfirmados).toBe(400000);

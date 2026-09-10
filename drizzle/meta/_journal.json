@@ -15,6 +15,62 @@
       "when": 1786308473493,
       "tag": "0001_triggers_y_deferrable",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787541961514,
+      "tag": "0002_precio_ticket_y_trigger_stock",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787780463553,
+      "tag": "0003_ordenes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787781833629,
+      "tag": "0004_cupones",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787782810415,
+      "tag": "0005_referidos",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787785870431,
+      "tag": "0006_aprobacion_eventos",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787788075486,
+      "tag": "0007_carrito",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788988762741,
+      "tag": "0008_carrito_asiento_usuario",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788994633130,
+      "tag": "0009_perfil_autoedicion",
+      "breakpoints": true
     }
   ]
 }

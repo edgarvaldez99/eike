@@ -129,9 +129,8 @@ export async function obtenerMetricasGlobales(): Promise<MetricasGlobales> {
     sql`SELECT estado, count(*) AS total FROM eventos GROUP BY estado`,
   );
   const { rows: filaVentas } = await db.execute<{ tickets_vendidos: number; ingresos_totales: number }>(sql`
-    SELECT count(*) AS tickets_vendidos, COALESCE(SUM(td.precio), 0) AS ingresos_totales
+    SELECT count(*) AS tickets_vendidos, COALESCE(SUM(t.precio_pagado), 0) AS ingresos_totales
       FROM tickets t
-      JOIN tandas td ON td.id = t.tanda_id
      WHERE t.estado IN ('disponible', 'usado')
   `);
   const [{ n: compradoresRegistrados }] = await db

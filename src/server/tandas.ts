@@ -110,13 +110,17 @@ export interface DatosCrearTanda {
   mapaAsientos?: DatosMapaAsientos;
 }
 
-/** El evento ya se validó como propio/superadmin y no cancelado/finalizado antes de llamar acá. */
+/** El evento ya se validó como propio/superadmin y editable antes de llamar
+ * acá (ver guardas.verificarEventoEditable) — este chequeo se repite acá
+ * como defensa en profundidad, igual que ya hacía antes con
+ * cancelado/finalizado (ahora ampliado: aprobación de eventos por
+ * superadmin, ver plan anti-estafa). */
 export async function crearTanda(
   evento: typeof eventos.$inferSelect,
   datos: DatosCrearTanda,
 ): Promise<{ id: number; advertencia: string | null }> {
-  if (evento.estado === "cancelado" || evento.estado === "finalizado") {
-    throw new ErrorNegocio("No se pueden agregar tandas a un evento cancelado o finalizado.");
+  if (evento.estado !== "borrador" && evento.estado !== "rechazado") {
+    throw new ErrorNegocio("No se pueden agregar tandas a este evento en su estado actual.");
   }
   if (datos.precio < 0) {
     throw new ErrorNegocio("El precio no puede ser negativo.");
@@ -202,6 +206,26 @@ export async function editarTanda(tanda: typeof tandas.$inferSelect, datos: Dato
       ...(datos.estado !== undefined ? { estado: datos.estado } : {}),
     })
     .where(eq(tandas.id, tanda.id));
+}
+
+/**
+ * La tanda ya se validó como propia/superadmin antes de llamar acá. A
+ * diferencia de editarTanda, esto solo toca la visibilidad pública — no
+ * exige (ni arriesga pisar) nombre/precio/cantidad_total.
+ *
+ * No permite reactivar una tanda "agotada" a mano: ese estado lo pone y
+ * saca el propio sistema al vender/devolver el último cupo (ver
+ * server/tickets.ts). Reactivarla sin stock real mostraría "Comprar" sobre
+ * una tanda sin entradas.
+ */
+export async function cambiarEstadoTanda(
+  tanda: typeof tandas.$inferSelect,
+  estado: "activa" | "inactiva",
+) {
+  if (tanda.estado === "agotada" && estado === "activa") {
+    throw new ErrorNegocio("Esa tanda está agotada: no quedan entradas para reactivarla.");
+  }
+  await db.update(tandas).set({ estado }).where(eq(tandas.id, tanda.id));
 }
 
 /** La tanda ya se validó como propia/superadmin antes de llamar acá. */

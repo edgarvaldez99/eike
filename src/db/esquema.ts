@@ -18,29 +18,43 @@ import {
 import {
   APROBACION_GRATUITO,
   ESTADOS_ASIENTO,
+  ESTADOS_CARRITO,
   ESTADOS_EVENTO,
   ESTADOS_LIQUIDACION,
+  ESTADOS_ORDEN,
   ESTADOS_PAGO,
+  ESTADOS_PREMIO,
   ESTADOS_REEMBOLSO,
   ESTADOS_SUSCRIPCION,
   ESTADOS_TANDA,
   ESTADOS_TICKET,
   ESTADOS_USUARIO,
+  ESTADOS_VENTA_REFERIDA,
   METODOS_PAGO,
   ROLES,
+  TIPOS_ALIAS_BANCARIO,
+  TIPOS_CUPON,
+  TIPOS_PREMIO,
   TIPOS_TANDA,
   type AprobacionGratuito,
   type EstadoAsiento,
+  type EstadoCarrito,
   type EstadoEvento,
   type EstadoLiquidacion,
+  type EstadoOrden,
   type EstadoPago,
+  type EstadoPremio,
   type EstadoReembolso,
   type EstadoSuscripcion,
   type EstadoTanda,
   type EstadoTicket,
   type EstadoUsuario,
+  type EstadoVentaReferida,
   type MetodoPago,
   type Rol,
+  type TipoAliasBancario,
+  type TipoCupon,
+  type TipoPremio,
   type TipoTanda,
 } from "@/lib/constantes";
 
@@ -65,6 +79,32 @@ import {
  *  - Los FK se dejan DEFERRABLE INITIALLY IMMEDIATE en esa misma migración a
  *    mano, para que el script de migración de datos pueda cargar las 13
  *    tablas dentro de una única transacción con constraints diferidos.
+ *  - tickets.precioPagado (Fase 4 del plan de mejoras) es GENERATED ALWAYS
+ *    AS STORED — Drizzle sí lo declara acá (generatedAlwaysAs), pero el
+ *    ADD COLUMN real vive a mano en drizzle/0002_precio_ticket_y_trigger_
+ *    stock.sql porque necesita un backfill entre medio (ver ese archivo).
+ *    Esa misma migración agrega trg_tickets_stock, que reemplaza los
+ *    `cantidad_vendida +/- 1` que antes escribía la app a mano.
+ *  - ordenes (Fase 5) y tickets.ordenId también se agregan a mano
+ *    (drizzle/0003_ordenes.sql): tickets.orden_id nace nullable, se
+ *    backfillea con una orden 1:1 por cada ticket existente, y RECIÉN AHÍ
+ *    se pone NOT NULL — mismo patrón que precio_unitario en la Fase 4.
+ *  - Fase 8: usuarios.codigoReferido, ordenes.referidoPorUsuarioId/
+ *    codigoReferido, y las tablas programas_referidos/referidos_ventas/
+ *    premios_referidos (drizzle/0005_referidos.sql). Sin carrito (Fase 6)
+ *    todavía: la atribución se congela en ordenes, no en un carrito previo.
+ *  - Fase 6: tandas.cantidadReservada + las tablas carritos/carrito_items
+ *    (drizzle/0007_carrito.sql). cantidad_reservada NUNCA se escribe con
+ *    +=/-= — se recalcula entero desde carrito_items en cada mutación (ver
+ *    server/carrito.ts::recalcularReservada), así que no puede driftear en
+ *    silencio. El cupón y el código de referido del carrito se resuelven
+ *    recién al checkout (mismo patrón que la compra directa de la Fase 7/8),
+ *    no se persisten en el carrito — un carrito es efímero, a diferencia de
+ *    una orden.
+ *  - usuarios.aliasBancarioTipo/aliasBancarioValor (drizzle/0009_perfil_
+ *    autoedicion.sql) — alias bancario del superadmin (dato de la
+ *    plataforma, no de cada organizador), para el mensaje de WhatsApp con
+ *    las instrucciones de pago; nunca se muestra en el checkout.
  */
 
 function checkEnum(
@@ -94,6 +134,19 @@ export const usuarios = pgTable(
     rucFacturacion: varchar("ruc_facturacion", { length: 30 }),
     tycAceptadoEn: timestamp("tyc_aceptado_en", { withTimezone: true }),
     invitadoPor: bigint("invitado_por", { mode: "number" }),
+    // Fase 8 del plan de mejoras: código personal de referido, generado
+    // perezosamente la primera vez que el usuario entra a /panel/cuenta
+    // (ver server/referidos.ts::obtenerOCrearCodigoReferido). NULL para
+    // quien nunca visitó esa pantalla — no se genera de antemano para
+    // todos los usuarios existentes.
+    codigoReferido: varchar("codigo_referido", { length: 12 }),
+    // Alias bancario del superadmin (dato de la plataforma, no de cada
+    // organizador — ver constantes.ts) para el mensaje de WhatsApp con las
+    // instrucciones de pago. NULL hasta que lo carga desde /panel/cuenta;
+    // los dos van siempre juntos (o ambos NULL, o ambos cargados) — eso lo
+    // garantiza editarAliasBancario (server/cuenta.ts), no una constraint.
+    aliasBancarioTipo: text("alias_bancario_tipo").$type<TipoAliasBancario>(),
+    aliasBancarioValor: varchar("alias_bancario_valor", { length: 100 }),
     creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -101,6 +154,9 @@ export const usuarios = pgTable(
     // Postgres es case-sensitive por defecto. Este índice + el login por
     // lower(email) replican esa semántica (ver plan §7.5, validación #10).
     uniqueIndex("uq_usuarios_email_lower").on(sql`lower(${t.email})`),
+    // Único ignorando mayúsculas — los índices únicos sobre expresión no
+    // chocan con NULL, así que quienes todavía no tienen código conviven sin problema.
+    uniqueIndex("uq_usuarios_codigo_referido").on(sql`lower(${t.codigoReferido})`),
     foreignKey({
       name: "fk_usuarios_invitado_por",
       columns: [t.invitadoPor],
@@ -108,6 +164,9 @@ export const usuarios = pgTable(
     }).onDelete("set null"),
     checkEnum("chk_usuarios_rol", t.rol, ROLES),
     checkEnum("chk_usuarios_estado", t.estado, ESTADOS_USUARIO),
+    // NULL pasa el CHECK igual (NULL IN (...) no es FALSE) — no hace falta
+    // contemplarlo aparte.
+    checkEnum("chk_usuarios_alias_bancario_tipo", t.aliasBancarioTipo, TIPOS_ALIAS_BANCARIO),
   ],
 );
 
@@ -131,6 +190,9 @@ export const eventos = pgTable(
       .default("no_aplica")
       .$type<AprobacionGratuito>(),
     estado: text("estado").notNull().default("borrador").$type<EstadoEvento>(),
+    // Se completa al rechazar (superadmin) y se limpia al aprobar o al
+    // volver a solicitar aprobación — mismo patrón que usuarios.motivoRechazo.
+    motivoRechazo: varchar("motivo_rechazo", { length: 255 }),
     fechaEventoOriginal: timestamp("fecha_evento_original", { withTimezone: true }),
     creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -166,6 +228,11 @@ export const tandas = pgTable(
     precio: bigint("precio", { mode: "number" }).notNull().default(0),
     cantidadTotal: integer("cantidad_total").notNull().default(0),
     cantidadVendida: integer("cantidad_vendida").notNull().default(0),
+    // Fase 6 del plan de mejoras: cuántas unidades están reservadas ahora
+    // mismo en carritos activos y no vencidos. Se recalcula ENTERO en cada
+    // mutación del carrito (nunca +=/-=) — ver server/carrito.ts::
+    // recalcularReservada. chk_tandas_stock (abajo) pasa a contemplarla.
+    cantidadReservada: integer("cantidad_reservada").notNull().default(0),
     estado: text("estado").notNull().default("activa").$type<EstadoTanda>(),
   },
   (t) => [
@@ -175,12 +242,118 @@ export const tandas = pgTable(
       columns: [t.eventoId],
       foreignColumns: [eventos.id],
     }).onDelete("restrict"),
-    check("chk_tandas_stock", sql`${t.cantidadVendida} <= ${t.cantidadTotal}`),
+    // Antes `cantidad_vendida <= cantidad_total`; ampliado en la Fase 6 para
+    // que una reserva de carrito tampoco pueda empujar el total por encima
+    // del cupo real. Mismo nombre de constraint a propósito — errores-pg.ts
+    // ya lo mapea a un mensaje amigable.
+    check("chk_tandas_stock", sql`${t.cantidadVendida} + ${t.cantidadReservada} <= ${t.cantidadTotal}`),
     check("chk_tandas_precio_no_negativo", sql`${t.precio} >= 0`),
     check("chk_tandas_cantidad_total_no_negativa", sql`${t.cantidadTotal} >= 0`),
     check("chk_tandas_cantidad_vendida_no_negativa", sql`${t.cantidadVendida} >= 0`),
+    check("chk_tandas_cantidad_reservada_no_negativa", sql`${t.cantidadReservada} >= 0`),
     checkEnum("chk_tandas_tipo", t.tipo, TIPOS_TANDA),
     checkEnum("chk_tandas_estado", t.estado, ESTADOS_TANDA),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// cupones — Fase 7 del plan de mejoras (Cambios_web.txt). Código único
+// GLOBAL (no por organizador): el comprador lo tipea sin haber elegido
+// organizador — si dos organizadores tuvieran el mismo código sería
+// ambiguo a qué evento aplica.
+// ---------------------------------------------------------------------------
+export const cupones = pgTable(
+  "cupones",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    organizadorId: bigint("organizador_id", { mode: "number" }).notNull(),
+    // NULL = aplica a todos los eventos de este organizador.
+    eventoId: bigint("evento_id", { mode: "number" }),
+    codigo: varchar("codigo", { length: 40 }).notNull(),
+    tipo: text("tipo").notNull().$type<TipoCupon>(),
+    // 1-100 si tipo='porcentaje'; guaraníes si tipo='monto' (CHECK abajo).
+    valor: bigint("valor", { mode: "number" }).notNull(),
+    maxUsos: integer("max_usos"), // NULL = ilimitado
+    usos: integer("usos").notNull().default(0),
+    maxUsosPorComprador: integer("max_usos_por_comprador").default(1),
+    montoMinimo: bigint("monto_minimo", { mode: "number" }).notNull().default(0),
+    venceEn: timestamp("vence_en", { withTimezone: true }),
+    activo: boolean("activo").notNull().default(true),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_cupones_codigo").on(sql`lower(${t.codigo})`),
+    index("idx_cupones_organizador").on(t.organizadorId),
+    foreignKey({
+      name: "fk_cupones_organizador",
+      columns: [t.organizadorId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_cupones_evento",
+      columns: [t.eventoId],
+      foreignColumns: [eventos.id],
+    }).onDelete("cascade"),
+    checkEnum("chk_cupones_tipo", t.tipo, TIPOS_CUPON),
+    check("chk_cupones_valor_porcentaje", sql`${t.tipo} <> 'porcentaje' or (${t.valor} between 1 and 100)`),
+    check("chk_cupones_valor_monto", sql`${t.tipo} <> 'monto' or ${t.valor} > 0`),
+    check("chk_cupones_usos_no_negativo", sql`${t.usos} >= 0`),
+    // El guardián de verdad: el tope no se puede exceder ni con un bug de la app.
+    check("chk_cupones_usos_max", sql`${t.maxUsos} is null or ${t.usos} <= ${t.maxUsos}`),
+    check("chk_cupones_monto_minimo_no_negativo", sql`${t.montoMinimo} >= 0`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// programas_referidos — Fase 8 del plan de mejoras. "Cada N ventas
+// referidas válidas, 1 cortesía." v1: solo premio tipo 'cortesia' (una
+// entrada gratis de una tanda elegida al crear el programa) — sin cupón
+// como premio todavía.
+// ---------------------------------------------------------------------------
+export const programasReferidos = pgTable(
+  "programas_referidos",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    organizadorId: bigint("organizador_id", { mode: "number" }).notNull(),
+    // NULL = cuentan las ventas referidas de todos los eventos del organizador.
+    eventoId: bigint("evento_id", { mode: "number" }),
+    nombre: varchar("nombre", { length: 80 }).notNull(),
+    ventasRequeridas: integer("ventas_requeridas").notNull(),
+    tipoPremio: text("tipo_premio").notNull().default("cortesia").$type<TipoPremio>(),
+    tandaPremioId: bigint("tanda_premio_id", { mode: "number" }),
+    maxPremiosPorUsuario: integer("max_premios_por_usuario"), // NULL = ilimitado
+    // Riesgo real (plan de mejoras §3.5): sin esto, un cupón de 100% +
+    // referido es una fábrica de premios gratis. > 0 por default a propósito.
+    montoMinimoVenta: bigint("monto_minimo_venta", { mode: "number" }).notNull().default(1),
+    iniciaEn: timestamp("inicia_en", { withTimezone: true }),
+    terminaEn: timestamp("termina_en", { withTimezone: true }),
+    activo: boolean("activo").notNull().default(true),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_programas_referidos_organizador").on(t.organizadorId, t.activo),
+    foreignKey({
+      name: "fk_programas_referidos_organizador",
+      columns: [t.organizadorId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_programas_referidos_evento",
+      columns: [t.eventoId],
+      foreignColumns: [eventos.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_programas_referidos_tanda_premio",
+      columns: [t.tandaPremioId],
+      foreignColumns: [tandas.id],
+    }).onDelete("restrict"),
+    checkEnum("chk_programas_referidos_tipo_premio", t.tipoPremio, TIPOS_PREMIO),
+    check("chk_programas_referidos_ventas_requeridas", sql`${t.ventasRequeridas} >= 1`),
+    check(
+      "chk_programas_referidos_tanda_premio_si_cortesia",
+      sql`${t.tipoPremio} <> 'cortesia' or ${t.tandaPremioId} is not null`,
+    ),
+    check("chk_programas_referidos_monto_minimo", sql`${t.montoMinimoVenta} >= 0`),
   ],
 );
 
@@ -215,6 +388,265 @@ export const asientos = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// carritos — Fase 6 del plan de mejoras. Identidad anónima (cookie sellada
+// con iron-session, ver lib/carrito/cookie.ts) — funciona igual para un
+// invitado o un comprador logueado, sin distinguirlos (mismo criterio que ya
+// usa comprarTicket). Un carrito es de UN SOLO organizador (organizadorId se
+// fija al agregar el primer ítem): el pago sigue siendo "transferencia a la
+// cuenta del organizador", y dos organizadores en un mismo carrito
+// necesitarían dos transferencias — ver plan de mejoras §Fase 6.
+// ---------------------------------------------------------------------------
+export const carritos = pgTable(
+  "carritos",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    token: varchar("token", { length: 64 }).notNull(),
+    organizadorId: bigint("organizador_id", { mode: "number" }),
+    // Fusión entre dispositivos: se fija la primera vez que se agrega un
+    // ítem estando logueado (ver server/carrito.ts::vincularCarritoAUsuario).
+    // Al iniciar sesión en OTRO dispositivo, se busca el último carrito
+    // 'activo' de esta cuenta y se adopta si el de esta cookie está vacío
+    // (ver adoptarCarritoDeCuenta) — nunca pisa un carrito que ya tenía ítems.
+    usuarioId: bigint("usuario_id", { mode: "number" }),
+    estado: text("estado").notNull().default("activo").$type<EstadoCarrito>(),
+    // Sliding window con techo duro — ver server/carrito.ts::
+    // calcularExpiracionCarrito. NULL hasta que se agrega el primer ítem.
+    expiraEn: timestamp("expira_en", { withTimezone: true }),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_carritos_token").on(t.token),
+    // Barrido de carritos vencidos (mismo patrón que idx_tickets_reserva /
+    // idx_ordenes_reserva).
+    index("idx_carritos_activos")
+      .on(t.expiraEn)
+      .where(sql`${t.estado} = 'activo'`),
+    // "Último carrito activo de esta cuenta" al iniciar sesión en otro
+    // dispositivo (ver adoptarCarritoDeCuenta).
+    index("idx_carritos_usuario_activo")
+      .on(t.usuarioId, t.creadoEn)
+      .where(sql`${t.estado} = 'activo'`),
+    foreignKey({
+      name: "fk_carritos_organizador",
+      columns: [t.organizadorId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "fk_carritos_usuario",
+      columns: [t.usuarioId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("set null"),
+    checkEnum("chk_carritos_estado", t.estado, ESTADOS_CARRITO),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// carrito_items — Fase 6. Dos formas conviven en la misma tabla:
+//  - Tanda general, o numerada SIN asiento elegido (invitado, o logueado que
+//    no pinea butaca): UNA fila agregada por (carrito, tanda) — agregar más
+//    unidades SUMA a `cantidad` (uq_carrito_items_carrito_tanda_general). El
+//    asiento se auto-asigna recién en el checkout (FOR UPDATE SKIP LOCKED),
+//    igual que ya hace un invitado en comprarTicket.
+//  - Numerada CON asiento elegido (logueado, ver BotonAgregarCarrito): UNA
+//    fila POR asiento, cantidad siempre 1, asiento_id fijo — el asiento pasa
+//    a 'reservado' en el momento de agregarlo (uq_carrito_items_asiento
+//    asegura que un mismo asiento no puede estar en dos carritos a la vez,
+//    estructuralmente). Si el carrito vence, el barrido tiene que devolver
+//    ese asiento a 'disponible' (ver barrerCarritosVencidos).
+// ---------------------------------------------------------------------------
+export const carritoItems = pgTable(
+  "carrito_items",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    carritoId: bigint("carrito_id", { mode: "number" }).notNull(),
+    tandaId: bigint("tanda_id", { mode: "number" }).notNull(),
+    // NULL = unidad(es) numerada(s) sin asignar todavía, o tanda general.
+    asientoId: bigint("asiento_id", { mode: "number" }),
+    cantidad: integer("cantidad").notNull().default(1),
+    agregadoEn: timestamp("agregado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_carrito_items_carrito_tanda_general")
+      .on(t.carritoId, t.tandaId)
+      .where(sql`${t.asientoId} is null`),
+    uniqueIndex("uq_carrito_items_asiento")
+      .on(t.asientoId)
+      .where(sql`${t.asientoId} is not null`),
+    index("idx_carrito_items_tanda").on(t.tandaId),
+    foreignKey({
+      name: "fk_carrito_items_carrito",
+      columns: [t.carritoId],
+      foreignColumns: [carritos.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_carrito_items_tanda",
+      columns: [t.tandaId],
+      foreignColumns: [tandas.id],
+      // RESTRICT a propósito (mismo criterio que fk_asientos_tanda): borrar
+      // una tanda con carritos vivos tiene que fallar con un mensaje
+      // amigable, no hacer desaparecer entradas del carrito de alguien.
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "fk_carrito_items_asiento",
+      columns: [t.asientoId],
+      foreignColumns: [asientos.id],
+    }).onDelete("restrict"),
+    // Tope razonable por tanda-en-carrito, no de negocio: frena a un bot
+    // agregando miles de unidades de una sola vez.
+    check("chk_carrito_items_cantidad", sql`${t.cantidad} >= 1 and ${t.cantidad} <= 20`),
+    // Un asiento pineado es SIEMPRE una unidad — la cantidad de esa fila no
+    // se "edita" (para eso está quitarItemCarrito, que borra la fila entera).
+    check("chk_carrito_items_asiento_cantidad_uno", sql`${t.asientoId} is null or ${t.cantidad} = 1`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// ordenes — Fase 5 del plan de mejoras (Cambios_web.txt). Unidad de
+// aprobación/pago: hoy 1:1 con un ticket (comprarTicket crea una orden por
+// compra), pero es el prerrequisito estructural del carrito (Fase 6) — una
+// orden con N tickets se aprueba/rechaza entera, con un solo comprobante.
+// cupon_id/codigo_cupon se agregaron en la Fase 7 (ver drizzle/0004_
+// cupones.sql). A propósito sigue sin carrito_id/referido_por_usuario_id/
+// codigo_referido/ip_hash: se agregan con ALTER TABLE cuando las Fases 6/8
+// los necesiten — preferible a columnas nullable sin uso mientras tanto.
+// ---------------------------------------------------------------------------
+export const ordenes = pgTable(
+  "ordenes",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    codigo: varchar("codigo", { length: 40 }).notNull(),
+    organizadorId: bigint("organizador_id", { mode: "number" }).notNull(),
+    compradorId: bigint("comprador_id", { mode: "number" }),
+    nombreComprador: varchar("nombre_comprador", { length: 150 }).notNull(),
+    cedula: varchar("cedula", { length: 30 }),
+    email: varchar("email", { length: 150 }).notNull(),
+    contacto: varchar("contacto", { length: 30 }),
+    comprobante: varchar("comprobante", { length: 100 }),
+    // Solo el basename, igual que tickets.comprobante_archivo. Las órdenes
+    // creadas por el backfill de la Fase 5 lo dejan null a propósito: el
+    // archivo de esos tickets viejos se queda donde está (ver
+    // drizzle/0003_ordenes.sql) — la lectura hace COALESCE(orden, ticket).
+    comprobanteArchivo: varchar("comprobante_archivo", { length: 255 }),
+    subtotal: bigint("subtotal", { mode: "number" }).notNull().default(0),
+    descuento: bigint("descuento", { mode: "number" }).notNull().default(0),
+    total: bigint("total", { mode: "number" })
+      .notNull()
+      .generatedAlwaysAs(sql`(subtotal - descuento)`),
+    // Fase 7. cuponId es el vínculo real (para el reporte de uso); codigoCupon
+    // es un snapshot textual (para mostrarlo en la orden aunque el cupón se
+    // desactive o cambie después) — mismo patrón que precioUnitario en tickets.
+    cuponId: bigint("cupon_id", { mode: "number" }),
+    codigoCupon: varchar("codigo_cupon", { length: 40 }),
+    // Fase 8. Mismo patrón: referidoPorUsuarioId es el vínculo real,
+    // codigoReferido el snapshot textual. Se congela acá, al comprar — no
+    // hay carrito (Fase 6) que lo congele antes, así que este es el único
+    // momento en que existe el dato para guardar.
+    referidoPorUsuarioId: bigint("referido_por_usuario_id", { mode: "number" }),
+    codigoReferido: varchar("codigo_referido", { length: 12 }),
+    cantidadTickets: integer("cantidad_tickets").notNull().default(1),
+    estado: text("estado").notNull().default("pendiente").$type<EstadoOrden>(),
+    reservadoHasta: timestamp("reservado_hasta", { withTimezone: true }),
+    aprobadoPor: bigint("aprobado_por", { mode: "number" }),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+    // Se actualiza sola por trigger (fijar_actualizado_en, ya existente),
+    // igual que tickets.actualizado_en.
+    actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_ordenes_codigo").on(t.codigo),
+    index("idx_ordenes_organizador_estado").on(t.organizadorId, t.estado),
+    index("idx_ordenes_comprador").on(t.compradorId, t.creadoEn),
+    // Cola de aprobación (mismo patrón que idx_tickets_pendientes).
+    index("idx_ordenes_pendientes")
+      .on(t.creadoEn)
+      .where(sql`${t.estado} = 'pendiente'`),
+    // Barrido de reservas vencidas (mismo patrón que idx_tickets_reserva).
+    index("idx_ordenes_reserva")
+      .on(t.reservadoHasta)
+      .where(sql`${t.estado} = 'pendiente'`),
+    foreignKey({
+      name: "fk_ordenes_organizador",
+      columns: [t.organizadorId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("restrict"),
+    foreignKey({
+      name: "fk_ordenes_comprador",
+      columns: [t.compradorId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("set null"),
+    foreignKey({
+      name: "fk_ordenes_aprobado_por",
+      columns: [t.aprobadoPor],
+      foreignColumns: [usuarios.id],
+    }).onDelete("set null"),
+    foreignKey({
+      name: "fk_ordenes_cupon",
+      columns: [t.cuponId],
+      foreignColumns: [cupones.id],
+    }).onDelete("set null"),
+    foreignKey({
+      name: "fk_ordenes_referido_por",
+      columns: [t.referidoPorUsuarioId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("set null"),
+    check("chk_ordenes_subtotal_no_negativo", sql`${t.subtotal} >= 0`),
+    check("chk_ordenes_descuento_no_negativo", sql`${t.descuento} >= 0`),
+    check("chk_ordenes_descuento_max", sql`${t.descuento} <= ${t.subtotal}`),
+    check("chk_ordenes_cantidad_tickets_positiva", sql`${t.cantidadTickets} >= 1`),
+    checkEnum("chk_ordenes_estado", t.estado, ESTADOS_ORDEN),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// referidos_ventas — Fase 8. Un usuario atribuido por venta (orden), no por
+// ticket: si mañana el carrito (Fase 6) junta varios tickets en una orden,
+// la venta referida sigue siendo UNA por orden. uq_referidos_ventas_orden
+// es lo que hace esto estructural, no una convención de la app.
+// ---------------------------------------------------------------------------
+export const referidosVentas = pgTable(
+  "referidos_ventas",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    referidorId: bigint("referidor_id", { mode: "number" }).notNull(),
+    ordenId: bigint("orden_id", { mode: "number" }).notNull(),
+    organizadorId: bigint("organizador_id", { mode: "number" }).notNull(),
+    eventoId: bigint("evento_id", { mode: "number" }).notNull(),
+    cantidadTickets: integer("cantidad_tickets").notNull(),
+    monto: bigint("monto", { mode: "number" }).notNull(), // SUM(tickets.precio_pagado) de esa orden
+    estado: text("estado").notNull().default("pendiente").$type<EstadoVentaReferida>(),
+    confirmadaEn: timestamp("confirmada_en", { withTimezone: true }),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_referidos_ventas_orden").on(t.ordenId),
+    index("idx_referidos_ventas_conteo").on(t.referidorId, t.organizadorId, t.estado),
+    foreignKey({
+      name: "fk_referidos_ventas_referidor",
+      columns: [t.referidorId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_referidos_ventas_orden",
+      columns: [t.ordenId],
+      foreignColumns: [ordenes.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_referidos_ventas_organizador",
+      columns: [t.organizadorId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_referidos_ventas_evento",
+      columns: [t.eventoId],
+      foreignColumns: [eventos.id],
+    }).onDelete("cascade"),
+    check("chk_referidos_ventas_cantidad", sql`${t.cantidadTickets} >= 1`),
+    check("chk_referidos_ventas_monto_no_negativo", sql`${t.monto} >= 0`),
+    checkEnum("chk_referidos_ventas_estado", t.estado, ESTADOS_VENTA_REFERIDA),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // tickets
 // ---------------------------------------------------------------------------
 export const tickets = pgTable(
@@ -225,6 +657,10 @@ export const tickets = pgTable(
     eventoId: bigint("evento_id", { mode: "number" }).notNull(),
     tandaId: bigint("tanda_id", { mode: "number" }).notNull(),
     asientoId: bigint("asiento_id", { mode: "number" }),
+    // Fase 5 del plan de mejoras: NOT NULL en el esquema declarativo, pero la
+    // migración a mano la agrega nullable, backfillea, y RECIÉN AHÍ la pone
+    // NOT NULL — ver drizzle/0003_ordenes.sql.
+    ordenId: bigint("orden_id", { mode: "number" }).notNull(),
     compradorId: bigint("comprador_id", { mode: "number" }),
     nombreComprador: varchar("nombre_comprador", { length: 150 }).notNull(),
     cedula: varchar("cedula", { length: 30 }),
@@ -235,6 +671,18 @@ export const tickets = pgTable(
     comprobanteArchivo: varchar("comprobante_archivo", { length: 255 }),
     estado: text("estado").notNull().default("pendiente").$type<EstadoTicket>(),
     esCortesia: boolean("es_cortesia").notNull().default(false),
+    // Snapshot del precio al momento de la compra (Fase 4 del plan de
+    // mejoras). Antes el precio de un ticket se leía siempre de
+    // tandas.precio — pero esa columna es mutable (el organizador la edita),
+    // así que un cambio de precio a mitad de venta reescribía retroactivamente
+    // los reportes/liquidaciones de tickets YA vendidos. precioPagado es
+    // GENERATED STORED: la relación con precioUnitario/descuento es una
+    // garantía estructural, nunca puede driftear con un UPDATE manual.
+    precioUnitario: bigint("precio_unitario", { mode: "number" }).notNull().default(0),
+    descuento: bigint("descuento", { mode: "number" }).notNull().default(0),
+    precioPagado: bigint("precio_pagado", { mode: "number" })
+      .notNull()
+      .generatedAlwaysAs(sql`(precio_unitario - descuento)`),
     reservadoHasta: timestamp("reservado_hasta", { withTimezone: true }),
     aprobadoPor: bigint("aprobado_por", { mode: "number" }),
     fechaCompra: timestamp("fecha_compra", { withTimezone: true }).notNull().defaultNow(),
@@ -250,6 +698,7 @@ export const tickets = pgTable(
     index("idx_tickets_reservado_hasta").on(t.reservadoHasta),
     index("idx_tickets_evento_estado").on(t.eventoId, t.estado),
     index("idx_tickets_tanda").on(t.tandaId),
+    index("idx_tickets_orden").on(t.ordenId),
     index("idx_tickets_comprador").on(t.compradorId, t.fechaCompra),
     // Cola de aprobación (superadmin y organizador).
     index("idx_tickets_pendientes")
@@ -275,6 +724,11 @@ export const tickets = pgTable(
       foreignColumns: [asientos.id],
     }).onDelete("restrict"),
     foreignKey({
+      name: "fk_tickets_orden",
+      columns: [t.ordenId],
+      foreignColumns: [ordenes.id],
+    }).onDelete("restrict"),
+    foreignKey({
       name: "fk_tickets_comprador",
       columns: [t.compradorId],
       foreignColumns: [usuarios.id],
@@ -285,6 +739,92 @@ export const tickets = pgTable(
       foreignColumns: [usuarios.id],
     }).onDelete("set null"),
     checkEnum("chk_tickets_estado", t.estado, ESTADOS_TICKET),
+    check("chk_tickets_precio_unitario_no_negativo", sql`${t.precioUnitario} >= 0`),
+    check("chk_tickets_descuento_no_negativo", sql`${t.descuento} >= 0`),
+    check("chk_tickets_descuento_max", sql`${t.descuento} <= ${t.precioUnitario}`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// cupon_usos — auditoría de uso (Fase 7). Una fila por orden que usó un
+// cupón; uq_cupon_usos_orden asegura que una orden solo consume un cupón
+// una vez, y email+cupon_id es lo que permite el tope "por comprador"
+// (max_usos_por_comprador de cupones) sin necesitar sesión — un invitado
+// se identifica por email, igual que en el resto del checkout.
+// ---------------------------------------------------------------------------
+export const cuponUsos = pgTable(
+  "cupon_usos",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    cuponId: bigint("cupon_id", { mode: "number" }).notNull(),
+    ordenId: bigint("orden_id", { mode: "number" }).notNull(),
+    compradorId: bigint("comprador_id", { mode: "number" }),
+    email: varchar("email", { length: 150 }).notNull(),
+    montoDescontado: bigint("monto_descontado", { mode: "number" }).notNull(),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_cupon_usos_orden").on(t.cuponId, t.ordenId),
+    index("idx_cupon_usos_email").on(t.cuponId, sql`lower(${t.email})`),
+    foreignKey({
+      name: "fk_cupon_usos_cupon",
+      columns: [t.cuponId],
+      foreignColumns: [cupones.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_cupon_usos_orden",
+      columns: [t.ordenId],
+      foreignColumns: [ordenes.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_cupon_usos_comprador",
+      columns: [t.compradorId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("set null"),
+    check("chk_cupon_usos_monto_no_negativo", sql`${t.montoDescontado} >= 0`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// premios_referidos — Fase 8. uq_premios_referidos_umbral es la pieza que
+// hace el otorgamiento seguro sin locks: dos aprobaciones concurrentes que
+// crucen el mismo umbral de ventas compiten por insertar la MISMA fila
+// (mismo programa+referidor+ventas_consumidas); la segunda choca contra el
+// índice único y se descarta como no-op (ver server/referidos.ts).
+// ---------------------------------------------------------------------------
+export const premiosReferidos = pgTable(
+  "premios_referidos",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    programaId: bigint("programa_id", { mode: "number" }).notNull(),
+    referidorId: bigint("referidor_id", { mode: "number" }).notNull(),
+    // El umbral de ventas que se cruzó para ganar este premio (N, 2N, 3N...).
+    ventasConsumidas: integer("ventas_consumidas").notNull(),
+    estado: text("estado").notNull().default("otorgado").$type<EstadoPremio>(),
+    ticketCortesiaId: bigint("ticket_cortesia_id", { mode: "number" }),
+    otorgadoEn: timestamp("otorgado_en", { withTimezone: true }).notNull().defaultNow(),
+    entregadoEn: timestamp("entregado_en", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("uq_premios_referidos_umbral").on(t.programaId, t.referidorId, t.ventasConsumidas),
+    index("idx_premios_referidos_referidor").on(t.referidorId),
+    foreignKey({
+      name: "fk_premios_referidos_programa",
+      columns: [t.programaId],
+      foreignColumns: [programasReferidos.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_premios_referidos_referidor",
+      columns: [t.referidorId],
+      foreignColumns: [usuarios.id],
+    }).onDelete("cascade"),
+    foreignKey({
+      name: "fk_premios_referidos_ticket_cortesia",
+      columns: [t.ticketCortesiaId],
+      foreignColumns: [tickets.id],
+    }).onDelete("set null"),
+    check("chk_premios_referidos_ventas_consumidas", sql`${t.ventasConsumidas} >= 1`),
+    checkEnum("chk_premios_referidos_estado", t.estado, ESTADOS_PREMIO),
   ],
 );
 

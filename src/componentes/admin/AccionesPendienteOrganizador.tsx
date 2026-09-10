@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { aprobarOrganizadorAction, rechazarOrganizadorAction } from "@/lib/acciones/admin-usuarios";
 import { Boton } from "@/componentes/ui/Boton";
+import { BotonConConfirmacion } from "@/componentes/ui/BotonConConfirmacion";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { Modal } from "@/componentes/ui/Modal";
 
@@ -10,21 +11,24 @@ export function AccionesPendienteOrganizador({ organizadorId }: { organizadorId:
   const [estadoAprobar, accionAprobar, pendienteAprobar] = useActionState(aprobarOrganizadorAction, null);
   const [estadoRechazar, accionRechazar, pendienteRechazar] = useActionState(rechazarOrganizadorAction, null);
   const [abierto, setAbierto] = useState(false);
+  const idFormAprobar = `aprobar-organizador-${organizadorId}`;
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex gap-2">
-        <form
-          action={accionAprobar}
-          onSubmit={(e) => {
-            if (!confirm("¿Aprobar este organizador?")) e.preventDefault();
-          }}
-        >
+        <form id={idFormAprobar} action={accionAprobar}>
           <input type="hidden" name="id" value={organizadorId} />
-          <Boton type="submit" tamano="sm" disabled={pendienteAprobar}>
-            {pendienteAprobar ? "…" : "Aprobar"}
-          </Boton>
         </form>
+        <BotonConConfirmacion
+          formId={idFormAprobar}
+          tamano="sm"
+          disabled={pendienteAprobar}
+          tituloModal="Aprobar organizador"
+          mensaje="¿Aprobar este organizador?"
+          etiquetaConfirmar="Sí, aprobar"
+        >
+          {pendienteAprobar ? "…" : "Aprobar"}
+        </BotonConConfirmacion>
         <Boton type="button" variante="ghost" tamano="sm" onClick={() => setAbierto(true)}>
           Rechazar
         </Boton>

@@ -16,6 +16,7 @@ const MENSAJES_POR_CONSTRAINT: Record<string, string> = {
   uq_usuarios_email_lower: "Ya existe una cuenta con ese email.",
   uq_tickets_codigo: "Ese código de ticket ya existe (colisión improbable, probá de nuevo).",
   uq_staff_invitaciones_token: "Ese token de invitación ya existe (colisión improbable, probá de nuevo).",
+  uq_carrito_items_asiento: "Ese asiento ya está en otro carrito.",
 };
 
 const MENSAJES_POR_SQLSTATE: Record<string, string> = {

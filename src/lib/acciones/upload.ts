@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { eventoPropioODeSuperadmin } from "@/lib/auth/guardas";
+import { eventoPropioODeSuperadmin, verificarEventoEditable } from "@/lib/auth/guardas";
 import { guardarAfiche } from "@/lib/archivos/subirAfiche";
 import { db } from "@/db/cliente";
 import { eventos } from "@/db/esquema";
@@ -25,6 +25,7 @@ export const subirAficheAction = accionSegura({
   roles: ["organizador", "superadmin"],
   ejecutar: async (datos, usuario) => {
     const evento = await eventoPropioODeSuperadmin(datos.evento_id, usuario);
+    verificarEventoEditable(evento);
     const aficheUrl = await guardarAfiche(datos.afiche, evento.organizadorId);
     await db.update(eventos).set({ aficheUrl }).where(eq(eventos.id, datos.evento_id));
     revalidatePath(`/panel/organizador/eventos/${datos.evento_id}/configuracion`);

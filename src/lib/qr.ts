@@ -11,6 +11,16 @@ export function generarCodigoTicket(): string {
 }
 
 /**
+ * Código de orden (Fase 5 del plan de mejoras). Prefijo distinto a
+ * propósito ("ORD-" en vez de "EIK-"): en soporte, dos códigos con el mismo
+ * formato se confunden garantizado — una orden y un ticket son cosas
+ * distintas (una orden puede tener varios tickets desde la Fase 6).
+ */
+export function generarCodigoOrden(): string {
+  return `ORD-${randomBytes(6).toString("hex").toUpperCase()}`;
+}
+
+/**
  * QR como SVG, generado en el servidor — reemplaza a api.qrserver.com (el
  * PHP viejo mandaba el código del ticket a un tercero por una URL de imagen;
  * ver plan de migración §1.6). Vectorial: no se pixela al imprimir. El

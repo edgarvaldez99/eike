@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { cerrarSesion, iniciarSesion } from "@/lib/auth/sesion";
 import { ipCliente, limitar } from "@/lib/rateLimit";
+import { ErrorNegocio } from "@/lib/errores";
+import { mensajeAmigablePg } from "@/lib/errores-pg";
+import { escribirTokenCarrito, leerTokenCarrito } from "@/lib/carrito/cookie";
+import { buscarCarritoParaAdoptar, obtenerCarritoUtilizablePorToken } from "@/server/carrito";
 import type { ResultadoAccion } from "./marco";
 
 /**
@@ -51,10 +55,37 @@ export async function iniciarSesionAction(
   try {
     usuario = await iniciarSesion(parseo.data.email, parseo.data.password);
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "No se pudo iniciar sesión.",
-    };
+    // Mismo criterio que accionSegura() (que acá no se puede usar: exige
+    // sesión previa y todavía no la hay). Antes esto reenviaba
+    // error.message de CUALQUIER excepción — incluida una falla real de
+    // conexión o de esquema con la base, cuyo mensaje trae la consulta SQL
+    // cruda y sus parámetros. Bug real de seguridad, encontrado en vivo:
+    // un desfasaje de una migración pendiente lo disparó con cualquier
+    // intento de login, exitoso o no.
+    if (error instanceof ErrorNegocio) {
+      return { ok: false, error: error.message };
+    }
+    const amigablePg = mensajeAmigablePg(error);
+    if (amigablePg) {
+      return { ok: false, error: amigablePg };
+    }
+    console.error("Error inesperado al iniciar sesión:", error);
+    return { ok: false, error: "No se pudo iniciar sesión. Probá de nuevo en un momento." };
+  }
+
+  // Fase 6 del plan de mejoras — fusión de carrito entre dispositivos:
+  // si este dispositivo no tiene un carrito con nada adentro, se adopta el
+  // último carrito activo de la cuenta (armado en otro dispositivo, ya
+  // vinculado por vincularCarritoAUsuario). Nunca pisa un carrito que este
+  // dispositivo ya venía llenando. Solo aplica a quien compra con su propia
+  // cuenta (comprador/superadmin) — un organizador/staff no "compra" acá.
+  if (usuario.rol === "comprador" || usuario.rol === "superadmin") {
+    const tokenActual = await leerTokenCarrito();
+    const carritoActual = await obtenerCarritoUtilizablePorToken(tokenActual);
+    const carritoParaAdoptar = await buscarCarritoParaAdoptar(usuario.id, carritoActual);
+    if (carritoParaAdoptar) {
+      await escribirTokenCarrito(carritoParaAdoptar.token);
+    }
   }
 
   // organizador/superadmin -> su panel de eventos; comprador -> sus entradas;

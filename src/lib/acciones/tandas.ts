@@ -1,9 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eventoPropioODeSuperadmin, tandaPropia } from "@/lib/auth/guardas";
+import { eventoPropioODeSuperadmin, tandaPropia, verificarEventoEditable } from "@/lib/auth/guardas";
 import { ErrorNegocio } from "@/lib/errores";
-import { esquemaCrearTanda, esquemaEditarTanda, esquemaEliminarTanda } from "@/lib/validaciones/tandas";
+import {
+  esquemaCambiarEstadoTanda,
+  esquemaCrearTanda,
+  esquemaEditarTanda,
+  esquemaEliminarTanda,
+} from "@/lib/validaciones/tandas";
 import * as servidorTandas from "@/server/tandas";
 import { accionSegura } from "./marco";
 
@@ -20,6 +25,7 @@ export const crearTandaAction = accionSegura({
   roles: ["organizador", "superadmin"],
   ejecutar: async (datos, usuario) => {
     const evento = await eventoPropioODeSuperadmin(datos.evento_id, usuario);
+    verificarEventoEditable(evento);
 
     if (datos.tipo === "numerada" && !datos.modo_asientos) {
       throw new ErrorNegocio('Falta el modo de carga de asientos ("grilla" o "lista").');
@@ -43,6 +49,10 @@ export const crearTandaAction = accionSegura({
     });
 
     revalidatePath(`/panel/organizador/eventos/${datos.evento_id}/configuracion`);
+    // Mismo bug que en eventos.ts: sin esto, un cambio de tanda (precio,
+    // stock) en un evento ya publicado no se ve en el storefront hasta que
+    // venza el ISR de la ficha (revalidate=60 en /eventos/[slugId]).
+    revalidatePath("/eventos/[slugId]", "page");
     return resultado;
   },
 });
@@ -52,6 +62,7 @@ export const editarTandaAction = accionSegura({
   roles: ["organizador", "superadmin"],
   ejecutar: async (datos, usuario) => {
     const tanda = await tandaPropia(datos.id, usuario);
+    verificarEventoEditable(await eventoPropioODeSuperadmin(tanda.eventoId, usuario));
     await servidorTandas.editarTanda(tanda, {
       nombre: datos.nombre,
       precio: datos.precio,
@@ -59,6 +70,19 @@ export const editarTandaAction = accionSegura({
       estado: datos.estado,
     });
     revalidatePath(`/panel/organizador/eventos/${tanda.eventoId}/configuracion`);
+    revalidatePath("/eventos/[slugId]", "page");
+  },
+});
+
+export const cambiarEstadoTandaAction = accionSegura({
+  esquema: esquemaCambiarEstadoTanda,
+  roles: ["organizador", "superadmin"],
+  ejecutar: async (datos, usuario) => {
+    const tanda = await tandaPropia(datos.id, usuario);
+    verificarEventoEditable(await eventoPropioODeSuperadmin(tanda.eventoId, usuario));
+    await servidorTandas.cambiarEstadoTanda(tanda, datos.estado);
+    revalidatePath(`/panel/organizador/eventos/${tanda.eventoId}/configuracion`);
+    revalidatePath("/eventos/[slugId]", "page");
   },
 });
 
@@ -67,7 +91,9 @@ export const eliminarTandaAction = accionSegura({
   roles: ["organizador", "superadmin"],
   ejecutar: async (datos, usuario) => {
     const tanda = await tandaPropia(datos.id, usuario);
+    verificarEventoEditable(await eventoPropioODeSuperadmin(tanda.eventoId, usuario));
     await servidorTandas.eliminarTanda(tanda);
     revalidatePath(`/panel/organizador/eventos/${tanda.eventoId}/configuracion`);
+    revalidatePath("/eventos/[slugId]", "page");
   },
 });

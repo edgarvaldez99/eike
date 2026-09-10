@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { esquemaAceptarInvitacion } from "@/lib/validaciones/staff";
 import * as servidorStaff from "@/server/staff";
+import { ErrorNegocio } from "@/lib/errores";
+import { mensajeAmigablePg } from "@/lib/errores-pg";
 import type { ResultadoAccion } from "./marco";
 
 /**
@@ -32,10 +34,17 @@ export async function aceptarInvitacionAction(
   try {
     await servidorStaff.aceptarInvitacion(parseo.data);
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "No se pudo aceptar la invitación.",
-    };
+    // Nunca reenviar error.message de un error inesperado tal cual — ver
+    // el bug real encontrado en iniciarSesionAction() (auth.ts).
+    if (error instanceof ErrorNegocio) {
+      return { ok: false, error: error.message };
+    }
+    const amigablePg = mensajeAmigablePg(error);
+    if (amigablePg) {
+      return { ok: false, error: amigablePg };
+    }
+    console.error("Error inesperado al aceptar una invitación de staff:", error);
+    return { ok: false, error: "No se pudo aceptar la invitación. Probá de nuevo en un momento." };
   }
 
   redirect("/ingresar");

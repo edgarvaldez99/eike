@@ -35,6 +35,14 @@ const nextConfig: NextConfig = {
   // Docker final solo lleva node_modules trazados por uso real, no todo el árbol.
   // Ver plan de migración §6.3.
   output: "standalone",
+  experimental: {
+    // Default de Next.js: 1 MB. Afiche y comprobante validan hasta 8MB en
+    // src/lib/archivos/*.ts — sin este límite, cualquier foto de celular
+    // (2-5 MB típico) moría acá ANTES de llegar a esa validación, con un
+    // error genérico en inglés. 12 (no 8) para dejar aire al overhead del
+    // multipart y a los demás campos del formulario.
+    serverActions: { bodySizeLimit: "12mb" },
+  },
   async headers() {
     return [{ source: "/:path*", headers: HEADERS_SEGURIDAD }];
   },

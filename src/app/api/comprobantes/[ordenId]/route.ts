@@ -5,7 +5,7 @@ import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/cliente";
-import { eventos, tickets } from "@/db/esquema";
+import { ordenes, tickets } from "@/db/esquema";
 import { usuarioActual } from "@/lib/auth/sesion";
 
 /**
@@ -17,9 +17,16 @@ import { usuarioActual } from "@/lib/auth/sesion";
  *  - Se transmite en streaming (`createReadStream`) en vez de cargar el
  *    archivo entero en memoria con `readfile()` — relevante con la RAM
  *    acotada de la VM de producción.
+ *
+ * Fase 5 del plan de mejoras: el comprobante ahora vive en la ORDEN, no en
+ * el ticket (una orden puede juntar varios tickets con un solo comprobante
+ * desde el carrito de la Fase 6). Acepta ambos prefijos de código
+ * ("EIK-" y "ORD-") porque las órdenes creadas por el backfill de la Fase 5
+ * no tienen archivo propio — el archivo de esos tickets viejos se quedó
+ * donde estaba, y acá se cae a leerlo de ahí (COALESCE).
  */
 
-const NOMBRE_VALIDO = /^EIK-[A-F0-9]{12}\.(jpg|png|webp|pdf)$/;
+const NOMBRE_VALIDO = /^(EIK|ORD)-[A-F0-9]{12}\.(jpg|png|webp|pdf)$/;
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".png": "image/png",
@@ -27,47 +34,58 @@ const MIME: Record<string, string> = {
   ".pdf": "application/pdf",
 };
 
-export async function GET(_req: Request, { params }: { params: Promise<{ ticketId: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ ordenId: string }> }) {
   const usuario = await usuarioActual();
   if (!usuario) {
     return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   }
 
-  const { ticketId } = await params;
-  const id = Number(ticketId);
+  const { ordenId } = await params;
+  const id = Number(ordenId);
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: "No encontrado." }, { status: 404 });
   }
 
-  const [fila] = await db
+  const [orden] = await db
     .select({
-      comprobanteArchivo: tickets.comprobanteArchivo,
-      compradorId: tickets.compradorId,
-      organizadorId: eventos.organizadorId,
+      comprobanteArchivo: ordenes.comprobanteArchivo,
+      compradorId: ordenes.compradorId,
+      organizadorId: ordenes.organizadorId,
     })
-    .from(tickets)
-    .innerJoin(eventos, eq(eventos.id, tickets.eventoId))
-    .where(eq(tickets.id, id))
+    .from(ordenes)
+    .where(eq(ordenes.id, id))
     .limit(1);
 
-  if (!fila || !fila.comprobanteArchivo) {
+  if (!orden) {
     return NextResponse.json({ error: "No encontrado." }, { status: 404 });
   }
 
   const autorizado =
     usuario.rol === "superadmin" ||
-    (usuario.rol === "organizador" && fila.organizadorId === usuario.id) ||
-    (usuario.rol === "comprador" && fila.compradorId === usuario.id);
+    (usuario.rol === "organizador" && orden.organizadorId === usuario.id) ||
+    (usuario.rol === "comprador" && orden.compradorId === usuario.id);
   if (!autorizado) {
     return NextResponse.json({ error: "No autorizado." }, { status: 403 });
   }
 
-  if (!NOMBRE_VALIDO.test(fila.comprobanteArchivo)) {
+  // Legacy (backfill de la Fase 5): la orden no tiene archivo propio, el
+  // archivo se quedó en su único ticket.
+  let nombreArchivo = orden.comprobanteArchivo;
+  if (!nombreArchivo) {
+    const [ticketLegacy] = await db
+      .select({ comprobanteArchivo: tickets.comprobanteArchivo })
+      .from(tickets)
+      .where(eq(tickets.ordenId, id))
+      .limit(1);
+    nombreArchivo = ticketLegacy?.comprobanteArchivo ?? null;
+  }
+
+  if (!nombreArchivo || !NOMBRE_VALIDO.test(nombreArchivo)) {
     return NextResponse.json({ error: "No encontrado." }, { status: 404 });
   }
 
-  const extension = path.extname(fila.comprobanteArchivo).toLowerCase();
-  const ruta = path.join(process.env.UPLOADS_DIR || "./.data/uploads", "comprobantes", fila.comprobanteArchivo);
+  const extension = path.extname(nombreArchivo).toLowerCase();
+  const ruta = path.join(process.env.UPLOADS_DIR || "./.data/uploads", "comprobantes", nombreArchivo);
 
   try {
     const info = await stat(ruta);

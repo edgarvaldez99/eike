@@ -6,6 +6,8 @@ import { registrarComprador } from "@/server/usuarios";
 import { iniciarSesion } from "@/lib/auth/sesion";
 import { rutaInternaSegura } from "@/lib/rutas";
 import { ipCliente, limitar } from "@/lib/rateLimit";
+import { ErrorNegocio } from "@/lib/errores";
+import { mensajeAmigablePg } from "@/lib/errores-pg";
 import type { ResultadoAccion } from "./marco";
 
 /**
@@ -60,10 +62,17 @@ export async function registrarCompradorAction(
     await registrarComprador(parseo.data);
     await iniciarSesion(parseo.data.email, parseo.data.password);
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "No se pudo crear la cuenta.",
-    };
+    // Mismo criterio que iniciarSesionAction(): nunca reenviar el .message
+    // de un error inesperado (ver bug real encontrado ahí).
+    if (error instanceof ErrorNegocio) {
+      return { ok: false, error: error.message };
+    }
+    const amigablePg = mensajeAmigablePg(error);
+    if (amigablePg) {
+      return { ok: false, error: amigablePg };
+    }
+    console.error("Error inesperado al registrar un comprador:", error);
+    return { ok: false, error: "No se pudo crear la cuenta. Probá de nuevo en un momento." };
   }
 
   redirect(volver);

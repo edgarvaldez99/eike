@@ -19,4 +19,11 @@ export const esquemaEditarEvento = z.object({
   aforo_total: zNumeroOpcional((s) => s.int().min(0)),
 });
 
-export const esquemaPublicarEvento = z.object({ id: zIdPositivo });
+export const esquemaSolicitarAprobacionEvento = z.object({ id: zIdPositivo });
+
+export const esquemaAprobarEvento = z.object({ id: zIdPositivo });
+
+export const esquemaRechazarEvento = z.object({
+  id: zIdPositivo,
+  motivo: z.string().trim().min(1, "Falta el motivo del rechazo."),
+});

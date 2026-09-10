@@ -43,6 +43,13 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# El volumen "uploads" (comprobantes/, afiches/) se monta acá — si el
+# directorio no existe ya con el dueño correcto ANTES del mount, Docker crea
+# la raíz del volumen nuevo como root:root, y el proceso (corre como
+# "nextjs", nunca root) no puede ni mkdir adentro. Bug real: se vio recién
+# con la primera compra real en producción (EACCES en comprobante.ts).
+RUN mkdir -p /app/uploads && chown -R nextjs:nodejs /app/uploads
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000

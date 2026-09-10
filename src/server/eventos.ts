@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { eventos, tandas, usuarios } from "@/db/esquema";
 import { ErrorNegocio } from "@/lib/errores";
@@ -53,9 +53,8 @@ export async function obtenerMisEventos(usuario: UsuarioSesion): Promise<EventoC
         SELECT evento_id, COUNT(*) AS tandas_creadas FROM tandas GROUP BY evento_id
       ) t ON t.evento_id = e.id
       LEFT JOIN (
-        SELECT tk.evento_id, COUNT(*) AS tickets_vendidos, SUM(td.precio) AS ingresos
+        SELECT tk.evento_id, COUNT(*) AS tickets_vendidos, SUM(tk.precio_pagado) AS ingresos
           FROM tickets tk
-          JOIN tandas td ON td.id = tk.tanda_id
          WHERE tk.estado IN ('disponible', 'usado')
          GROUP BY tk.evento_id
       ) v ON v.evento_id = e.id
@@ -174,10 +173,16 @@ export async function obtenerEventoPublicoPorId(id: number): Promise<EventoPubli
       nombre: tandas.nombre,
       tipo: tandas.tipo,
       precio: tandas.precio,
-      disponibles: sql<number>`${tandas.cantidadTotal} - ${tandas.cantidadVendida}`,
+      // Fase 6 del plan de mejoras: lo reservado en carritos activos
+      // también descuenta del disponible público, no solo lo ya vendido —
+      // si no, dos personas verían el mismo último cupo "libre" a la vez.
+      disponibles: sql<number>`${tandas.cantidadTotal} - ${tandas.cantidadVendida} - ${tandas.cantidadReservada}`,
     })
     .from(tandas)
-    .where(and(eq(tandas.eventoId, id), eq(tandas.estado, "activa")))
+    // "agotada" sigue visible (con el cartel "Agotado" ya implementado en la
+    // página) — genera urgencia y el JSON-LD sigue publicando SoldOut a
+    // Google. Del público solo desaparece "inactiva" (ocultada a mano).
+    .where(and(eq(tandas.eventoId, id), inArray(tandas.estado, ["activa", "agotada"])))
     .orderBy(tandas.precio);
 
   return {
@@ -213,6 +218,11 @@ export async function crearEvento(usuario: UsuarioSesion, datos: DatosCrearEvent
       lugar: datos.lugar,
       aforoTotal: datos.aforoTotal,
       esGratuito: datos.esGratuito,
+      // aprobacionGratuito queda por compatibilidad de esquema, pero está
+      // superada: la aprobación general de eventos (estado
+      // 'pendiente_aprobacion'/'rechazado', ver solicitarAprobacionEvento
+      // más abajo) ya cubre a TODO evento, gratuito o no — nada vuelve a
+      // leer esta columna.
       aprobacionGratuito: datos.esGratuito ? "pendiente" : "no_aplica",
       estado: "borrador",
     })
@@ -228,13 +238,15 @@ export interface DatosEditarEvento {
   aforoTotal: number | null;
 }
 
-/** El evento ya se validó como propio/superadmin (ver guardas.eventoPropioODeSuperadmin) antes de llamar acá. */
+/** El evento ya se validó como propio/superadmin (ver guardas.eventoPropioODeSuperadmin)
+ * Y como editable (ver guardas.verificarEventoEditable) antes de llamar acá
+ * — repetido acá como defensa en profundidad, mismo criterio que crearTanda. */
 export async function editarEvento(
   evento: typeof eventos.$inferSelect,
   datos: DatosEditarEvento,
 ) {
-  if (evento.estado === "cancelado" || evento.estado === "finalizado") {
-    throw new ErrorNegocio("No se puede editar un evento cancelado o finalizado.");
+  if (evento.estado !== "borrador" && evento.estado !== "rechazado") {
+    throw new ErrorNegocio("Este evento no se puede editar en su estado actual.");
   }
   // es_gratuito solo se fija al crear (ver comentario en eventos.php): cambiarlo
   // después reabriría la aprobación del superadmin sobre un evento que ya
@@ -251,21 +263,50 @@ export async function editarEvento(
     .where(eq(eventos.id, evento.id));
 }
 
-export async function publicarEvento(evento: typeof eventos.$inferSelect) {
-  if (evento.estado !== "borrador") {
-    throw new ErrorNegocio("Solo se puede publicar un evento en borrador.");
-  }
-  if (evento.esGratuito && evento.aprobacionGratuito !== "aprobado") {
-    throw new ErrorNegocio("Este evento gratuito todavía no fue aprobado por el superadmin.");
+/**
+ * Solicitar aprobación (antes: "publicar" directo) — pedido anti-estafa:
+ * de acá en más ningún evento se publica sin que el superadmin lo revise.
+ * A partir de este punto el evento queda de solo lectura (ver
+ * guardas.verificarEventoEditable) hasta que se apruebe o se rechace.
+ */
+export async function solicitarAprobacionEvento(evento: typeof eventos.$inferSelect) {
+  if (evento.estado !== "borrador" && evento.estado !== "rechazado") {
+    throw new ErrorNegocio("Solo se puede solicitar aprobación de un evento en borrador o rechazado.");
   }
   const [{ n }] = await db
     .select({ n: sql<number>`count(*)` })
     .from(tandas)
     .where(eq(tandas.eventoId, evento.id));
   if (Number(n) === 0) {
-    throw new ErrorNegocio("El evento necesita al menos una tanda antes de publicarse.");
+    throw new ErrorNegocio("El evento necesita al menos una tanda antes de solicitar aprobación.");
   }
-  await db.update(eventos).set({ estado: "publicado" }).where(eq(eventos.id, evento.id));
+  // Limpia un motivo de rechazo anterior: es un pedido nuevo.
+  await db
+    .update(eventos)
+    .set({ estado: "pendiente_aprobacion", motivoRechazo: null })
+    .where(eq(eventos.id, evento.id));
+}
+
+/** Solo superadmin (validado en la Server Action, no acá — mismo criterio
+ * que aprobarOrganizador). Deja el evento en venta. */
+export async function aprobarEvento(evento: typeof eventos.$inferSelect) {
+  if (evento.estado !== "pendiente_aprobacion") {
+    throw new ErrorNegocio("Solo se puede aprobar un evento pendiente de aprobación.");
+  }
+  await db
+    .update(eventos)
+    .set({ estado: "publicado", motivoRechazo: null })
+    .where(eq(eventos.id, evento.id));
+}
+
+/** Solo superadmin. El evento vuelve a ser editable (ver
+ * guardas.verificarEventoEditable) para que el organizador corrija lo que
+ * el motivo señale y vuelva a solicitar aprobación. */
+export async function rechazarEvento(evento: typeof eventos.$inferSelect, motivo: string) {
+  if (evento.estado !== "pendiente_aprobacion") {
+    throw new ErrorNegocio("Solo se puede rechazar un evento pendiente de aprobación.");
+  }
+  await db.update(eventos).set({ estado: "rechazado", motivoRechazo: motivo }).where(eq(eventos.id, evento.id));
 }
 
 // ============================================================================
@@ -279,6 +320,7 @@ export interface EventoGlobal {
   lugar: string | null;
   estado: EstadoEvento;
   esGratuito: boolean;
+  motivoRechazo: string | null;
   organizadorId: number;
   organizadorNombre: string;
   ticketsVendidos: number;
@@ -295,13 +337,14 @@ export async function obtenerEventosGlobal(): Promise<EventoGlobal[]> {
     lugar: string | null;
     estado: EstadoEvento;
     es_gratuito: boolean;
+    motivo_rechazo: string | null;
     organizador_id: number;
     organizador_nombre: string;
     tickets_vendidos: number;
     ingresos: number;
     sobrantes: number;
   }>(sql`
-    SELECT e.id, e.nombre, e.fecha_evento, e.lugar, e.estado, e.es_gratuito,
+    SELECT e.id, e.nombre, e.fecha_evento, e.lugar, e.estado, e.es_gratuito, e.motivo_rechazo,
            u.id AS organizador_id, u.nombre AS organizador_nombre,
            COALESCE(v.tickets_vendidos, 0) AS tickets_vendidos,
            COALESCE(v.ingresos, 0) AS ingresos,
@@ -309,9 +352,8 @@ export async function obtenerEventosGlobal(): Promise<EventoGlobal[]> {
       FROM eventos e
       JOIN usuarios u ON u.id = e.organizador_id
       LEFT JOIN (
-        SELECT t.evento_id, COUNT(*) AS tickets_vendidos, SUM(td.precio) AS ingresos
+        SELECT t.evento_id, COUNT(*) AS tickets_vendidos, SUM(t.precio_pagado) AS ingresos
           FROM tickets t
-          JOIN tandas td ON td.id = t.tanda_id
          WHERE t.estado IN ('disponible', 'usado')
          GROUP BY t.evento_id
       ) v ON v.evento_id = e.id
@@ -329,6 +371,7 @@ export async function obtenerEventosGlobal(): Promise<EventoGlobal[]> {
     lugar: f.lugar,
     estado: f.estado,
     esGratuito: f.es_gratuito,
+    motivoRechazo: f.motivo_rechazo,
     organizadorId: f.organizador_id,
     organizadorNombre: f.organizador_nombre,
     ticketsVendidos: Number(f.tickets_vendidos),
@@ -356,11 +399,10 @@ export async function obtenerRankingOrganizadores(): Promise<RankingOrganizador[
   }>(sql`
     SELECT u.id AS organizador_id, u.nombre, u.email,
            COUNT(tk.id) AS tickets_vendidos,
-           COALESCE(SUM(td.precio), 0) AS ingresos
+           COALESCE(SUM(tk.precio_pagado), 0) AS ingresos
       FROM usuarios u
       LEFT JOIN eventos e ON e.organizador_id = u.id
       LEFT JOIN tickets tk ON tk.evento_id = e.id AND tk.estado IN ('disponible', 'usado')
-      LEFT JOIN tandas td ON td.id = tk.tanda_id
      WHERE u.rol = 'organizador'
      GROUP BY u.id
      ORDER BY ingresos DESC, tickets_vendidos DESC

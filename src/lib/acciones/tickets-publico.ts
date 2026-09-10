@@ -1,11 +1,16 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { usuarioActual } from "@/lib/auth/sesion";
 import { esquemaComprar } from "@/lib/validaciones/tickets";
+import { esquemaPrevisualizarCupon } from "@/lib/validaciones/cupones";
 import { prepararComprobante } from "@/lib/archivos/comprobante";
 import { ipCliente, limitar } from "@/lib/rateLimit";
 import { comprarTicket } from "@/server/tickets";
+import { previsualizarCupon } from "@/server/cupones";
+import { ErrorNegocio } from "@/lib/errores";
+import { mensajeAmigablePg } from "@/lib/errores-pg";
 import type { ResultadoAccion } from "./marco";
 
 /**
@@ -39,6 +44,7 @@ export async function comprarTicketAction(
     asiento_id: fd.get("asiento_id"),
     tyc_aceptado: fd.get("tyc_aceptado"),
     comprobante_texto: fd.get("comprobante_texto"),
+    codigo_cupon: fd.get("codigo_cupon"),
   });
   if (!parseo.success) {
     const campos: Record<string, string> = {};
@@ -59,6 +65,10 @@ export async function comprarTicketAction(
 
   const archivoCrudo = fd.get("comprobante");
   const tieneArchivo = archivoCrudo instanceof File && archivoCrudo.size > 0;
+  // Fase 8: la atribución de referido viaja en una cookie de solo lectura
+  // (ver proxy.ts) — nunca en el propio form, para que no se pueda
+  // falsear editando el HTML de la página.
+  const codigoReferido = (await cookies()).get("eike_ref")?.value ?? null;
 
   let codigo: string;
   try {
@@ -73,14 +83,76 @@ export async function comprarTicketAction(
       asientoId: parseo.data.asiento_id ?? null,
       comprobanteTexto: parseo.data.comprobante_texto,
       comprobante,
+      codigoCupon: parseo.data.codigo_cupon,
+      codigoReferido,
     });
     codigo = ticket.codigo;
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "No se pudo completar la compra.",
-    };
+    // Nunca reenviar error.message de un error inesperado tal cual — ver
+    // el bug real encontrado en iniciarSesionAction() (auth.ts).
+    if (error instanceof ErrorNegocio) {
+      return { ok: false, error: error.message };
+    }
+    const amigablePg = mensajeAmigablePg(error);
+    if (amigablePg) {
+      return { ok: false, error: amigablePg };
+    }
+    console.error("Error inesperado al completar una compra:", error);
+    return { ok: false, error: "No se pudo completar la compra. Probá de nuevo en un momento." };
   }
 
   redirect(`/entradas/${codigo}`);
+}
+
+/**
+ * Previsualización de cupón (Fase 7 del plan de mejoras) — de solo lectura,
+ * NO consume el cupón. Se llama directo desde un evento de clic del
+ * cliente (no es un <form action>, así que no pasa por useActionState);
+ * Next la trata igual que cualquier Server Function.
+ *
+ * Es autoritativa solo para mostrar el total antes de transferir: el
+ * consumo real y el chequeo de cupo ocurren de nuevo, atómicamente, dentro
+ * de comprarTicket — si el cupón se agotó entre esta previsualización y el
+ * submit, la compra falla en vez de cobrar de más en silencio.
+ */
+export async function previsualizarCuponAction(datos: {
+  eventoId: number;
+  tandaId: number;
+  codigo: string;
+}): Promise<{ ok: true; descuento: number; total: number } | { ok: false; error: string }> {
+  // Sin la fricción de subir un archivo (a diferencia de la compra real),
+  // probar códigos acá es mucho más barato para un bot — límite propio.
+  const ip = await ipCliente();
+  const { permitido, reintentarEnSegundos } = limitar(`cupon-preview:${ip}`, { maximo: 20, ventanaMs: 60 * 1000 });
+  if (!permitido) {
+    return { ok: false, error: `Demasiados intentos. Probá de nuevo en ${reintentarEnSegundos}s.` };
+  }
+
+  const parseo = esquemaPrevisualizarCupon.safeParse({
+    evento_id: datos.eventoId,
+    tanda_id: datos.tandaId,
+    codigo: datos.codigo,
+  });
+  if (!parseo.success) {
+    return { ok: false, error: "Código inválido." };
+  }
+
+  try {
+    const previa = await previsualizarCupon({
+      eventoId: parseo.data.evento_id,
+      tandaId: parseo.data.tanda_id,
+      codigo: parseo.data.codigo,
+    });
+    return { ok: true, descuento: previa.descuento, total: previa.total };
+  } catch (error) {
+    if (error instanceof ErrorNegocio) {
+      return { ok: false, error: error.message };
+    }
+    const amigablePg = mensajeAmigablePg(error);
+    if (amigablePg) {
+      return { ok: false, error: amigablePg };
+    }
+    console.error("Error inesperado al previsualizar un cupón:", error);
+    return { ok: false, error: "No se pudo validar el cupón. Probá de nuevo en un momento." };
+  }
 }

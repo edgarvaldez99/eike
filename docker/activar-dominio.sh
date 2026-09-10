@@ -16,6 +16,18 @@ echo "OK: eike.com.py -> 34.56.167.44"
 
 echo "=== 2. Activando el Caddyfile con el dominio (HTTPS automático) ==="
 cp Caddyfile.dominio Caddyfile
+
+# compose.prod.yml (Fase 7) publica solo el 80 a propósito: sin un site que
+# necesite TLS, publicar el 443 igual hacía que Docker aceptara la conexión
+# TCP y la cerrara a mitad del handshake (ERR_CONNECTION_CLOSED en vez de un
+# connection refused prolijo). Ahora que el Caddyfile del dominio sí lo usa,
+# lo agregamos acá — persiste en este compose.prod.yml de la VM para los
+# deploys futuros (el workflow de GitHub Actions no vuelve a copiar este
+# archivo, solo hace pull de la imagen).
+if ! grep -q '"443:443"' compose.prod.yml; then
+  sed -i 's|- "80:80"|- "80:80"\n      - "443:443"|' compose.prod.yml
+fi
+
 docker compose -f compose.prod.yml up -d caddy
 
 echo "=== 3. Esperando que Caddy consiga el certificado (Let's Encrypt) ==="

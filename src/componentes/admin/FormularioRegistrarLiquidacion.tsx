@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import { crearLiquidacionAction } from "@/lib/acciones/liquidaciones";
 import { Boton } from "@/componentes/ui/Boton";
+import { BotonConConfirmacion } from "@/componentes/ui/BotonConConfirmacion";
+import { CampoMonto } from "@/componentes/ui/CampoMonto";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 
 export function FormularioRegistrarLiquidacion({
@@ -15,6 +17,7 @@ export function FormularioRegistrarLiquidacion({
   const [abierto, setAbierto] = useState(false);
   const [estado, accion, pendiente] = useActionState(crearLiquidacionAction, null);
   const hoy = new Date().toISOString().slice(0, 10);
+  const idForm = `registrar-liquidacion-${organizadorId}`;
 
   if (!abierto) {
     return (
@@ -25,32 +28,31 @@ export function FormularioRegistrarLiquidacion({
   }
 
   return (
-    <form
-      action={accion}
-      onSubmit={(e) => {
-        if (!confirm("¿Confirmás que ya se le pagó esta liquidación al organizador?")) e.preventDefault();
-      }}
-      className="flex flex-col gap-2 rounded-[var(--radius-eike-sm)] border border-border-soft p-3"
-    >
+    <form id={idForm} action={accion} className="flex flex-col gap-2 rounded-[var(--radius-eike-sm)] border border-border-soft p-3">
       <input type="hidden" name="organizador_id" value={organizadorId} />
       <div className="grid grid-cols-2 gap-2">
         <CampoTexto etiqueta="Período inicio" type="date" name="periodo_inicio" defaultValue={hoy} required />
         <CampoTexto etiqueta="Período fin" type="date" name="periodo_fin" defaultValue={hoy} required />
       </div>
-      <CampoTexto
+      <CampoMonto
         etiqueta="Total vendido del período (Gs)"
-        type="number"
         name="total_vendido"
         defaultValue={pendienteSugerido}
-        min={0}
         required
       />
-      <CampoTexto etiqueta="Comisión / suscripción a cobrar (Gs)" type="number" name="monto_comision_o_suscripcion" defaultValue={0} min={0} required />
+      <CampoMonto etiqueta="Comisión / suscripción a cobrar (Gs)" name="monto_comision_o_suscripcion" defaultValue={0} required />
       {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
       <div className="flex gap-2">
-        <Boton type="submit" tamano="sm" disabled={pendiente}>
+        <BotonConConfirmacion
+          formId={idForm}
+          tamano="sm"
+          disabled={pendiente}
+          tituloModal="Registrar liquidación"
+          mensaje="¿Confirmás que ya se le pagó esta liquidación al organizador?"
+          etiquetaConfirmar="Sí, ya se pagó"
+        >
           {pendiente ? "Registrando…" : "Registrar (ya pagado)"}
-        </Boton>
+        </BotonConConfirmacion>
         <Boton type="button" variante="ghost" tamano="sm" onClick={() => setAbierto(false)}>
           Cancelar
         </Boton>

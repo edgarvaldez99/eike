@@ -7,6 +7,13 @@
 	reverse_proxy web:3000
 	encode gzip
 
+	# 15MB: Next.js ya limita el body de sus Server Actions a 12MB
+	# (next.config.ts), esto es solo el cinturón — sin límite acá, Caddy
+	# antes dejaba pasar cualquier tamaño hacia el proceso de Node.
+	request_body {
+		max_size 15MB
+	}
+
 	log {
 		output stdout
 		format console

@@ -6,7 +6,7 @@ import { crearEvento, crearTanda, crearUsuario } from "@/test/fixtures";
 import type { UsuarioSesion } from "@/lib/auth/sesion";
 
 function comoSesion(id: number, rol: UsuarioSesion["rol"]): UsuarioSesion {
-  return { id, rol, nombre: "Test", email: "test@test.com", telefono: null, cedula: null, estado: "activo", creadoEn: new Date() };
+  return { id, rol, nombre: "Test", email: "test@test.com", telefono: null, cedula: null, estado: "activo", creadoEn: new Date(), codigoReferido: null, rucFacturacion: null, aliasBancarioTipo: null, aliasBancarioValor: null };
 }
 
 describe("eventoPropioODeSuperadmin", () => {

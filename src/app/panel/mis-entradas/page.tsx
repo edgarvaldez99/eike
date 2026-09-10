@@ -28,7 +28,7 @@ export default async function PaginaMisEntradas({
   const tickets = await obtenerMisTickets(usuario.id);
 
   const confirmados = tickets.filter((t) => t.estado === "disponible" || t.estado === "usado");
-  const totalGastado = confirmados.reduce((s, t) => s + t.precio, 0);
+  const totalGastado = confirmados.reduce((s, t) => s + t.precioPagado, 0);
   const pendientes = tickets.filter((t) => t.estado === "pendiente").length;
   const usados = tickets.filter((t) => t.estado === "usado").length;
   const eventosDistintos = new Set(confirmados.map((t) => t.eventoId)).size;
@@ -143,7 +143,7 @@ export default async function PaginaMisEntradas({
                         {t.tandaNombre}
                         {t.asientoIdentificador ? ` · ${t.asientoIdentificador}` : ""}
                       </td>
-                      <td className="num right">{formatoGs(t.precio)}</td>
+                      <td className="num right">{formatoGs(t.precioPagado)}</td>
                       <td>
                         <Pill variante={PILL_ESTADO_TICKET[t.estado as EstadoTicket] ?? "neutral"}>
                           {ETIQUETA_ESTADO[t.estado] ?? t.estado}

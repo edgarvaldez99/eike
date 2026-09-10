@@ -4,7 +4,9 @@ type VariantePill = "ok" | "warn" | "err" | "info" | "neutral";
 
 export const PILL_ESTADO_EVENTO: Record<EstadoEvento, VariantePill> = {
   borrador: "neutral",
+  pendiente_aprobacion: "warn",
   publicado: "ok",
+  rechazado: "err",
   reprogramado: "warn",
   finalizado: "info",
   cancelado: "err",

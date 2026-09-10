@@ -1,18 +1,23 @@
 "use client";
 
 import { useActionState } from "react";
-import { editarEventoAction, publicarEventoAction } from "@/lib/acciones/eventos";
+import { editarEventoAction } from "@/lib/acciones/eventos";
 import { Boton } from "@/componentes/ui/Boton";
+import { CampoMonto } from "@/componentes/ui/CampoMonto";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { CampoTextarea } from "@/componentes/ui/CampoTextarea";
+import { BotonSolicitarAprobacion } from "@/componentes/organizador/BotonSolicitarAprobacion";
 import { aFechaHoraLocalInput } from "@/lib/fechas";
 import type { eventos } from "@/db/esquema";
 
 export function FormularioDatosEvento({ evento }: { evento: typeof eventos.$inferSelect }) {
   const [estado, accion, pendiente] = useActionState(editarEventoAction, null);
-  const [estadoPublicar, accionPublicar, pendientePublicar] = useActionState(publicarEventoAction, null);
   const errorCampo = (campo: string) => (estado && !estado.ok ? estado.campos?.[campo] : undefined);
-  const puedeEditar = evento.estado !== "cancelado" && evento.estado !== "finalizado";
+  // Solo lectura fuera de 'borrador'/'rechazado' — pedido anti-estafa: una
+  // vez que se solicita la aprobación, nada se puede tocar hasta que el
+  // superadmin lo resuelva (ver guardas.verificarEventoEditable, mismo
+  // criterio en el servidor).
+  const puedeEditar = evento.estado === "borrador" || evento.estado === "rechazado";
 
   return (
     <div className="flex flex-col gap-4">
@@ -43,10 +48,8 @@ export function FormularioDatosEvento({ evento }: { evento: typeof eventos.$infe
           error={errorCampo("fecha_evento")}
         />
         <CampoTexto etiqueta="Lugar" name="lugar" defaultValue={evento.lugar ?? ""} disabled={!puedeEditar} />
-        <CampoTexto
+        <CampoMonto
           etiqueta="Aforo total (opcional)"
-          type="number"
-          min={0}
           name="aforo_total"
           defaultValue={evento.aforoTotal ?? ""}
           disabled={!puedeEditar}
@@ -60,16 +63,10 @@ export function FormularioDatosEvento({ evento }: { evento: typeof eventos.$infe
         ) : null}
       </form>
 
-      {evento.estado === "borrador" ? (
-        <form action={accionPublicar} className="border-t border-border-soft pt-4">
-          <input type="hidden" name="id" value={evento.id} />
-          {estadoPublicar && !estadoPublicar.ok ? (
-            <p className="eike-campo-error mb-2">{estadoPublicar.error}</p>
-          ) : null}
-          <Boton type="submit" disabled={pendientePublicar}>
-            {pendientePublicar ? "Publicando…" : "Publicar evento"}
-          </Boton>
-        </form>
+      {puedeEditar ? (
+        <div className="border-t border-border-soft pt-4">
+          <BotonSolicitarAprobacion eventoId={evento.id} />
+        </div>
       ) : null}
     </div>
   );

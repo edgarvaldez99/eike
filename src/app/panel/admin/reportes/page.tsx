@@ -206,7 +206,7 @@ export default async function PaginaAdminReportes({
                       <td>{t.eventoNombre}</td>
                       <td className="text-muted">{t.organizadorNombre}</td>
                       <td>{t.tandaNombre}</td>
-                      <td className="num right">{formatoGs(t.precio)}</td>
+                      <td className="num right">{formatoGs(t.precioPagado)}</td>
                       <td>
                         <Pill variante={PILL_ESTADO_TICKET[t.estado as EstadoTicket] ?? "neutral"}>
                           {ETIQUETA_ESTADO[t.estado] ?? t.estado}

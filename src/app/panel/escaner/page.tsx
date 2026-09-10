@@ -12,7 +12,7 @@ export default async function PaginaSeleccionEscaner() {
   const eventos = await obtenerEventosEscaneables(usuario);
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-6">
+    <div className="mx-auto flex max-w-md flex-col gap-4">
       <div>
         <span className="eike-eyebrow">Escáner</span>
         <h1 className="mt-1 text-xl font-extrabold">Elegí el evento</h1>
@@ -36,6 +36,6 @@ export default async function PaginaSeleccionEscaner() {
           ))}
         </div>
       )}
-    </main>
+    </div>
   );
 }

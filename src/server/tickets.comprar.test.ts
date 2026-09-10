@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/cliente";
-import { asientos, tandas } from "@/db/esquema";
+import { asientos, tandas, tickets } from "@/db/esquema";
 import { comprarTicket } from "@/server/tickets";
 import { ErrorNegocio } from "@/lib/errores";
 import { crearAsiento, crearEvento, crearTanda, crearUsuario } from "@/test/fixtures";
@@ -21,6 +21,8 @@ const datosBase = {
   asientoId: null,
   comprobanteTexto: null,
   comprobante: null,
+  codigoCupon: null,
+  codigoReferido: null,
 };
 
 describe("comprarTicket", () => {
@@ -39,7 +41,7 @@ describe("comprarTicket", () => {
     await expect(comprarTicket(null, { ...datosBase, eventoId, tandaId })).rejects.toThrow(ErrorNegocio);
   });
 
-  it("una tanda paga con comprobante queda 'pendiente' con reserva a 15 minutos", async () => {
+  it("una tanda paga con comprobante queda 'pendiente' con una reserva a futuro", async () => {
     const { eventoId, tandaId } = await armarEventoConTanda({ precio: 50000, cantidadTotal: 10 });
 
     const antes = Date.now();
@@ -54,6 +56,29 @@ describe("comprarTicket", () => {
     expect(ticket.estado).toBe("pendiente");
     expect(ticket.reservadoHasta).not.toBeNull();
     expect(ticket.reservadoHasta!.getTime()).toBeGreaterThan(antes);
+  });
+
+  it("congela el precio de la tanda en el ticket (Fase 4): un cambio de precio después no lo altera", async () => {
+    const { eventoId, tandaId } = await armarEventoConTanda({ precio: 100000, cantidadTotal: 10 });
+
+    const ticket = await comprarTicket(null, {
+      ...datosBase,
+      eventoId,
+      tandaId,
+      comprobanteTexto: "transferencia #123",
+      comprobante: { buffer: Buffer.from("contenido de prueba"), extension: "jpg" },
+    });
+    expect(ticket.precioUnitario).toBe(100000);
+    expect(ticket.precioPagado).toBe(100000);
+
+    // El organizador sube el precio de la tanda DESPUÉS de esta venta — el
+    // ticket ya vendido no se tiene que mover: es la reescritura retroactiva
+    // que este cambio arregla (antes los reportes leían tandas.precio).
+    await db.update(tandas).set({ precio: 200000 }).where(eq(tandas.id, tandaId));
+
+    const [ticketRelido] = await db.select().from(tickets).where(eq(tickets.id, ticket.id));
+    expect(ticketRelido.precioUnitario).toBe(100000);
+    expect(ticketRelido.precioPagado).toBe(100000);
   });
 
   it("descuenta cantidadVendida de la tanda en cada compra", async () => {

@@ -26,3 +26,10 @@ export const esquemaEditarTanda = z.object({
 });
 
 export const esquemaEliminarTanda = z.object({ id: zIdPositivo });
+
+// Acción chica y separada de esquemaEditarTanda: esta solo cambia
+// visibilidad, no exige (ni arriesga pisar) nombre/precio/cantidad_total.
+export const esquemaCambiarEstadoTanda = z.object({
+  id: zIdPositivo,
+  estado: z.enum(["activa", "inactiva"]),
+});

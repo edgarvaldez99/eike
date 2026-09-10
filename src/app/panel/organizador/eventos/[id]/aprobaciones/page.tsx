@@ -3,7 +3,7 @@ import { requerirSesion } from "@/lib/auth/guardas";
 import { obtenerEventoConTandas } from "@/server/eventos";
 import { obtenerPendientes } from "@/server/tickets";
 import { Card } from "@/componentes/ui/Card";
-import { formatoFecha, formatoGs } from "@/lib/formato";
+import { formatoFecha, formatoGs, formatoVenceEn } from "@/lib/formato";
 import { BotonesAprobacion } from "@/componentes/organizador/BotonesAprobacion";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -55,8 +55,13 @@ export default async function PaginaAprobaciones({
                     <td>{t.nombreComprador}</td>
                     <td className="num text-muted">{t.cedula ?? "—"}</td>
                     <td>{t.tandaNombre}</td>
-                    <td className="num right">{formatoGs(t.precio)}</td>
-                    <td className="num">{formatoFecha(t.fechaCompra)}</td>
+                    <td className="num right">{formatoGs(t.total)}</td>
+                    <td className="num">
+                      {formatoFecha(t.fechaCompra)}
+                      {formatoVenceEn(t.reservadoHasta) ? (
+                        <div className="text-[11.5px] text-amber">{formatoVenceEn(t.reservadoHasta)}</div>
+                      ) : null}
+                    </td>
                     <td>
                       <div className="flex flex-col items-start gap-2">
                         <a
@@ -67,7 +72,7 @@ export default async function PaginaAprobaciones({
                         >
                           Ver comprobante ↗
                         </a>
-                        <BotonesAprobacion ticketId={t.id} />
+                        <BotonesAprobacion ordenId={t.id} />
                       </div>
                     </td>
                   </tr>

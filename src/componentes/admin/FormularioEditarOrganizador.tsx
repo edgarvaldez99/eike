@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { editarOrganizadorAction, inactivarOrganizadorAction, reactivarOrganizadorAction } from "@/lib/acciones/admin-usuarios";
 import { Boton } from "@/componentes/ui/Boton";
+import { BotonConConfirmacion } from "@/componentes/ui/BotonConConfirmacion";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import type { EstadoUsuario } from "@/lib/constantes";
 
@@ -53,19 +54,22 @@ export function FormularioEditarOrganizador({ organizador }: { organizador: Orga
           </Boton>
         </form>
       ) : organizador.estado === "activo" || organizador.estado === "mora" ? (
-        <form
-          action={accionInactivar}
-          onSubmit={(e) => {
-            if (!confirm("¿Dar de baja a este organizador? Sus eventos publicados no se ven afectados.")) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <input type="hidden" name="id" value={organizador.id} />
-          <Boton variante="ghost" tamano="sm" disabled={pendienteInactivar}>
+        <>
+          <form id={`inactivar-organizador-${organizador.id}`} action={accionInactivar}>
+            <input type="hidden" name="id" value={organizador.id} />
+          </form>
+          <BotonConConfirmacion
+            formId={`inactivar-organizador-${organizador.id}`}
+            variante="ghost"
+            tamano="sm"
+            disabled={pendienteInactivar}
+            tituloModal="Dar de baja organizador"
+            mensaje="¿Dar de baja a este organizador? Sus eventos publicados no se ven afectados."
+            etiquetaConfirmar="Sí, dar de baja"
+          >
             {pendienteInactivar ? "…" : "Dar de baja"}
-          </Boton>
-        </form>
+          </BotonConConfirmacion>
+        </>
       ) : null}
     </div>
   );

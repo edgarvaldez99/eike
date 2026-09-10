@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { crearEventoAction } from "@/lib/acciones/eventos";
 import { Boton } from "@/componentes/ui/Boton";
+import { CampoMonto } from "@/componentes/ui/CampoMonto";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { CampoTextarea } from "@/componentes/ui/CampoTextarea";
 import { Modal } from "@/componentes/ui/Modal";
@@ -27,10 +28,10 @@ export function ModalNuevoEvento() {
             error={errorCampo("fecha_evento")}
           />
           <CampoTexto etiqueta="Lugar" name="lugar" />
-          <CampoTexto etiqueta="Aforo total (opcional)" type="number" min={0} name="aforo_total" />
+          <CampoMonto etiqueta="Aforo total (opcional)" name="aforo_total" />
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="es_gratuito" />
-            Evento gratuito (requiere aprobación del superadmin)
+            Evento gratuito (sus tandas no pueden tener precio)
           </label>
           {estado && !estado.ok && !estado.campos ? (
             <p className="eike-campo-error">{estado.error}</p>

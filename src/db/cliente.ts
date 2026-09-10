@@ -14,11 +14,17 @@ declare global {
 
 // En dev, Next.js recarga módulos en cada cambio; sin este cache global se
 // abriría un pool nuevo por reload y se agotarían las conexiones de Postgres.
+// DB_POOL_MAX es opcional (default 8, el mismo valor de siempre en prod —
+// la VM es una e2-micro con RAM limitada). .env.test lo sube a 20: los
+// tests de concurrencia del carrito (Fase 6 del plan de mejoras) abren
+// varias transacciones simultáneas de verdad, y con 8 conexiones el pool se
+// agota antes de terminar — eso se ve como un timeout que parece un bug de
+// concurrencia y no lo es.
 const pool =
   globalThis.__eikePool ??
   new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 8,
+    max: Number(process.env.DB_POOL_MAX) || 8,
   });
 
 if (process.env.NODE_ENV !== "production") {

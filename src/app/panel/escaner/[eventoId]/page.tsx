@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { puedeEscanearEvento, requerirSesion } from "@/lib/auth/guardas";
 import { db } from "@/db/cliente";
@@ -23,12 +24,14 @@ export default async function PaginaEscaner({
   if (!(await puedeEscanearEvento(id, usuario))) notFound();
 
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-4 p-6">
+    <div className="mx-auto flex max-w-md flex-col gap-4">
       <div>
-        <span className="eike-eyebrow">Escáner</span>
-        <h1 className="mt-1 text-xl font-extrabold">{evento.nombre}</h1>
+        <Link href="/panel/escaner" className="text-[13px] text-cyan hover:underline">
+          ← Elegir otro evento
+        </Link>
+        <h1 className="mt-2 text-xl font-extrabold">{evento.nombre}</h1>
       </div>
       <EscanerCamara eventoId={id} />
-    </main>
+    </div>
   );
 }

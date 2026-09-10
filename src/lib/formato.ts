@@ -26,3 +26,16 @@ const formateadorFecha = new Intl.DateTimeFormat("es-PY", {
 export function formatoFecha(fecha: Date): string {
   return formateadorFecha.format(fecha);
 }
+
+/** "Vence en 3h" / "Vencido, se libera pronto" — para la cola de aprobaciones.
+ * Se calcula en el servidor a propósito (nunca mandar la fecha cruda y restar
+ * en el cliente): el reloj de un celular real puede estar minutos desviado. */
+export function formatoVenceEn(reservadoHasta: Date | null): string | null {
+  if (!reservadoHasta) return null;
+  const msRestantes = reservadoHasta.getTime() - Date.now();
+  if (msRestantes <= 0) return "Vencido, se libera pronto";
+  const horas = Math.ceil(msRestantes / (60 * 60 * 1000));
+  if (horas < 1) return "Vence en menos de 1h";
+  if (horas < 24) return `Vence en ${horas}h`;
+  return `Vence en ${Math.ceil(horas / 24)}d`;
+}

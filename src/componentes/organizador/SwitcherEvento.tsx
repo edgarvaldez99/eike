@@ -16,6 +16,8 @@ export interface EventoParaSwitcher {
 const PILL_LIVE: Record<string, { texto: string; clase: string }> = {
   publicado: { texto: "En venta", clase: "text-green" },
   borrador: { texto: "Borrador", clase: "text-muted" },
+  pendiente_aprobacion: { texto: "Pendiente", clase: "text-amber" },
+  rechazado: { texto: "Rechazado", clase: "text-red" },
   reprogramado: { texto: "Reprogramado", clase: "text-amber" },
   finalizado: { texto: "Finalizado", clase: "text-muted" },
   cancelado: { texto: "Cancelado", clase: "text-red" },

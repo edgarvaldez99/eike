@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { eventos, staffEventos, tandas, usuarios } from "@/db/esquema";
-import type { Rol } from "@/lib/constantes";
+import type { EstadoEvento, Rol } from "@/lib/constantes";
+import { ErrorNegocio } from "@/lib/errores";
 import { usuarioActual, type UsuarioSesion } from "./sesion";
 
 /**
@@ -56,6 +57,26 @@ export async function eventoPropioODeSuperadmin(eventoId: number, usuario: Usuar
     throw new ErrorAutorizacion("Ese evento no te pertenece.");
   }
   return evento;
+}
+
+/**
+ * Aprobación de eventos por superadmin (anti-estafa): un evento solo se
+ * puede editar (datos, afiche, tandas, cupones, programas de referidos) en
+ * 'borrador' o 'rechazado' — el resto de los estados (pendiente de
+ * aprobación, publicado, reprogramado, finalizado, cancelado) es de solo
+ * lectura hasta que el superadmin lo apruebe o lo rechace de nuevo.
+ *
+ * Se aplica por igual a organizador y superadmin: el superadmin revisa
+ * RECHAZANDO con un motivo, no editando directo — mismo criterio que el
+ * resto de las reglas de negocio del proyecto (los guardas de rol acá son
+ * para ownership, no para saltarse reglas de estado).
+ */
+export function verificarEventoEditable(evento: { estado: EstadoEvento }) {
+  if (evento.estado !== "borrador" && evento.estado !== "rechazado") {
+    throw new ErrorNegocio(
+      "Este evento no se puede editar en su estado actual — solo se edita en borrador, o si fue rechazado.",
+    );
+  }
 }
 
 /** La tanda existe y su evento le pertenece al usuario (o es superadmin). */

@@ -16,10 +16,12 @@ interface ResumenOrganizador {
  * — organizadorId null agrega TODOS los organizadores (vista superadmin).
  */
 export async function resumenOrganizador(organizadorId: number | null): Promise<ResumenOrganizador> {
+  // precio_pagado, no tandas.precio (Fase 4 del plan de mejoras): la tanda es
+  // mutable y esto es plata que ya se cobró — tiene que quedar congelada al
+  // momento de la venta, no recalculada con el precio de lista de hoy.
   const { rows: filaVentas } = await db.execute<{ ingresos: number }>(sql`
-    SELECT COALESCE(SUM(td.precio), 0) AS ingresos
+    SELECT COALESCE(SUM(tk.precio_pagado), 0) AS ingresos
       FROM tickets tk
-      JOIN tandas td ON td.id = tk.tanda_id
       JOIN eventos e ON e.id = tk.evento_id
      WHERE tk.estado IN ('disponible', 'usado')
        ${organizadorId !== null ? sql`AND e.organizador_id = ${organizadorId}` : sql``}

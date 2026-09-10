@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { crearTandaAction } from "@/lib/acciones/tandas";
 import { Boton } from "@/componentes/ui/Boton";
+import { CampoMonto } from "@/componentes/ui/CampoMonto";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { CampoTextarea } from "@/componentes/ui/CampoTextarea";
 
@@ -17,7 +18,7 @@ export function FormularioNuevaTanda({ eventoId }: { eventoId: number }) {
       <input type="hidden" name="evento_id" value={eventoId} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <CampoTexto etiqueta="Nombre" name="nombre" required error={errorCampo("nombre")} />
-        <CampoTexto etiqueta="Precio (Gs)" type="number" min={0} name="precio" required defaultValue={0} />
+        <CampoMonto etiqueta="Precio (Gs)" name="precio" required defaultValue={0} />
       </div>
 
       <div>
@@ -47,10 +48,8 @@ export function FormularioNuevaTanda({ eventoId }: { eventoId: number }) {
       </div>
 
       {tipo === "general" ? (
-        <CampoTexto
+        <CampoMonto
           etiqueta="Cantidad total"
-          type="number"
-          min={1}
           name="cantidad_total"
           required
           error={errorCampo("cantidad_total")}

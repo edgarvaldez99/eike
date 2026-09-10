@@ -3,7 +3,9 @@
 import { useActionState, useState } from "react";
 import { comprarTicketAction } from "@/lib/acciones/tickets-publico";
 import { Boton } from "@/componentes/ui/Boton";
+import { CampoImagen } from "@/componentes/ui/CampoImagen";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
+import { CampoCupon, type CuponAplicado } from "@/componentes/publico/CampoCupon";
 import { cn } from "@/lib/cn";
 import type { UsuarioSesion } from "@/lib/auth/sesion";
 import type { AsientoDisponible } from "@/server/tandas";
@@ -22,7 +24,10 @@ export function FormularioCompra({
 }) {
   const [estado, accion, pendiente] = useActionState(comprarTicketAction, null);
   const [asientoId, setAsientoId] = useState<number | null>(null);
-  const esGratis = tanda.precio === 0;
+  const [cupon, setCupon] = useState<CuponAplicado | null>(null);
+  // Un cupón del 100% deja la compra gratis: no reactiva a mano, se deriva
+  // siempre del total ya con descuento (nunca del precio de lista solo).
+  const esGratis = tanda.precio - (cupon?.descuento ?? 0) <= 0;
   const requiereAsiento = tanda.tipo === "numerada" && usuario !== null;
   const errorCampo = (campo: string) => (estado && !estado.ok ? estado.campos?.[campo] : undefined);
 
@@ -30,6 +35,7 @@ export function FormularioCompra({
     <form action={accion} encType="multipart/form-data" className="flex flex-col gap-4">
       <input type="hidden" name="evento_id" value={eventoId} />
       <input type="hidden" name="tanda_id" value={tanda.id} />
+      <input type="hidden" name="codigo_cupon" value={cupon?.codigo ?? ""} />
       {asientoId ? <input type="hidden" name="asiento_id" value={asientoId} /> : null}
 
       {requiereAsiento ? (
@@ -79,21 +85,23 @@ export function FormularioCompra({
         defaultValue={usuario?.telefono ?? ""}
       />
 
+      {tanda.precio > 0 ? (
+        <CampoCupon eventoId={eventoId} tandaId={tanda.id} onResultado={setCupon} />
+      ) : null}
+
       {esGratis ? (
-        <p className="text-[13px] text-green">Esta entrada es gratuita — no se requiere comprobante.</p>
+        <p className="text-[13px] text-green">
+          {cupon ? "Con el cupón, esta entrada queda gratis — no se requiere comprobante." : "Esta entrada es gratuita — no se requiere comprobante."}
+        </p>
       ) : (
         <>
           <CampoTexto etiqueta="Nº de comprobante (opcional)" name="comprobante_texto" />
-          <div>
-            <label className="eike-campo-label">Comprobante de pago (imagen o PDF)</label>
-            <input
-              type="file"
-              name="comprobante"
-              accept="image/png,image/jpeg,image/webp,application/pdf"
-              required
-              className="text-[12.5px]"
-            />
-          </div>
+          <CampoImagen
+            etiqueta="Comprobante de pago (imagen o PDF)"
+            name="comprobante"
+            required
+            permitirPdf
+          />
         </>
       )}
 

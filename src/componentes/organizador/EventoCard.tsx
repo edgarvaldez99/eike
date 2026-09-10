@@ -7,7 +7,9 @@ import type { EventoConMetricas } from "@/server/eventos";
 
 const ETIQUETA_ESTADO: Record<string, string> = {
   borrador: "Borrador",
+  pendiente_aprobacion: "Pendiente",
   publicado: "En venta",
+  rechazado: "Rechazado",
   reprogramado: "Reprogramado",
   finalizado: "Finalizado",
   cancelado: "Cancelado",

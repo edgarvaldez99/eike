@@ -1,27 +1,27 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { esquemaAprobarRechazarTicket, esquemaCrearCortesia } from "@/lib/validaciones/tickets";
+import { esquemaAprobarRechazarOrden, esquemaCrearCortesia } from "@/lib/validaciones/tickets";
 import * as servidorTickets from "@/server/tickets";
 import { accionSegura } from "./marco";
 
-export const aprobarTicketAction = accionSegura({
-  esquema: esquemaAprobarRechazarTicket,
+export const aprobarOrdenAction = accionSegura({
+  esquema: esquemaAprobarRechazarOrden,
   roles: ["organizador", "superadmin"],
   ejecutar: async (datos, usuario) => {
-    const ticket = await servidorTickets.obtenerTicketPendientePropio(datos.id, usuario);
-    await servidorTickets.aprobarTicket(ticket, usuario);
-    revalidatePath(`/panel/organizador/eventos/${ticket.eventoId}`);
+    const orden = await servidorTickets.obtenerOrdenPendientePropia(datos.id, usuario);
+    const eventosIds = await servidorTickets.aprobarOrden(orden, usuario);
+    for (const eventoId of eventosIds) revalidatePath(`/panel/organizador/eventos/${eventoId}`);
   },
 });
 
-export const rechazarTicketAction = accionSegura({
-  esquema: esquemaAprobarRechazarTicket,
+export const rechazarOrdenAction = accionSegura({
+  esquema: esquemaAprobarRechazarOrden,
   roles: ["organizador", "superadmin"],
   ejecutar: async (datos, usuario) => {
-    const ticket = await servidorTickets.obtenerTicketPendientePropio(datos.id, usuario);
-    await servidorTickets.rechazarTicket(ticket);
-    revalidatePath(`/panel/organizador/eventos/${ticket.eventoId}`);
+    const orden = await servidorTickets.obtenerOrdenPendientePropia(datos.id, usuario);
+    const eventosIds = await servidorTickets.rechazarOrden(orden);
+    for (const eventoId of eventosIds) revalidatePath(`/panel/organizador/eventos/${eventoId}`);
   },
 });
 

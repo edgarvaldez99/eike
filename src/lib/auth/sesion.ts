@@ -4,7 +4,8 @@ import { cache } from "react";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { usuarios } from "@/db/esquema";
-import { MOTIVOS_BLOQUEO_LOGIN, type EstadoUsuario, type Rol } from "@/lib/constantes";
+import { MOTIVOS_BLOQUEO_LOGIN, type EstadoUsuario, type Rol, type TipoAliasBancario } from "@/lib/constantes";
+import { ErrorNegocio } from "@/lib/errores";
 import { verificarPassword } from "./password";
 
 /**
@@ -64,6 +65,14 @@ export type UsuarioSesion = {
   cedula: string | null;
   estado: EstadoUsuario;
   creadoEn: Date;
+  // Fase 8 del plan de mejoras — null hasta que el usuario entra por
+  // primera vez a /panel/cuenta (se genera ahí, perezosamente).
+  codigoReferido: string | null;
+  rucFacturacion: string | null;
+  // Alias bancario del superadmin (dato de la plataforma, ver
+  // constantes.ts) — siempre null para cualquier otro rol.
+  aliasBancarioTipo: TipoAliasBancario | null;
+  aliasBancarioValor: string | null;
 };
 
 const COLUMNAS_PUBLICAS = {
@@ -75,6 +84,10 @@ const COLUMNAS_PUBLICAS = {
   cedula: usuarios.cedula,
   estado: usuarios.estado,
   creadoEn: usuarios.creadoEn,
+  codigoReferido: usuarios.codigoReferido,
+  rucFacturacion: usuarios.rucFacturacion,
+  aliasBancarioTipo: usuarios.aliasBancarioTipo,
+  aliasBancarioValor: usuarios.aliasBancarioValor,
 } as const;
 
 /** Usuario logueado (sin password_hash), o null. Memoizado por request. */
@@ -107,12 +120,17 @@ export async function iniciarSesion(email: string, password: string): Promise<Us
     .limit(1);
 
   if (!fila || !(await verificarPassword(password, fila.passwordHash))) {
-    throw new Error("Email o contraseña incorrectos.");
+    // ErrorNegocio, no un Error a secas: iniciarSesionAction() (no puede
+    // usar accionSegura(), que exige sesión previa) filtra por este tipo
+    // para decidir qué mostrarle al usuario. Un Error a secas de acá —
+    // p. ej. una falla real de conexión o de esquema con la base — jamás
+    // debe llegarle su .message crudo al navegador.
+    throw new ErrorNegocio("Email o contraseña incorrectos.");
   }
 
   const motivoBloqueo = MOTIVOS_BLOQUEO_LOGIN[fila.estado as EstadoUsuario];
   if (motivoBloqueo) {
-    throw new Error(motivoBloqueo);
+    throw new ErrorNegocio(motivoBloqueo);
   }
 
   const sesion = await obtenerSesionCookie();

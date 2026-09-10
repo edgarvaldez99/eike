@@ -33,7 +33,11 @@ export async function guardarAfiche(archivo: File, organizadorId: number): Promi
   try {
     normalizado = await sharp(buffer, { limitInputPixels: 268_402_689 })
       .rotate()
-      .resize({ width: 1200, withoutEnlargement: true })
+      // 1600 (antes 1200): un afiche se ve a pantalla completa en celulares
+      // modernos, 1200px quedaba corto. El cliente ya comprime antes de
+      // subir (CampoImagen), así que esto es la normalización final, no la
+      // única defensa contra archivos pesados.
+      .resize({ width: 1600, withoutEnlargement: true })
       .jpeg({ quality: 85 })
       .toBuffer();
   } catch {

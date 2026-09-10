@@ -1,13 +1,19 @@
-import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { obtenerEventoPublicoPorId } from "@/server/eventos";
+import { obtenerAsientosDisponibles, type AsientoDisponible } from "@/server/tandas";
+import { usuarioActual } from "@/lib/auth/sesion";
 import { armarSlugEvento, idDesdeSlug } from "@/lib/slug";
 import { formatoFecha, formatoGs } from "@/lib/formato";
 import { Card } from "@/componentes/ui/Card";
 import { Boton } from "@/componentes/ui/Boton";
+import { BotonCompartir } from "@/componentes/publico/BotonCompartir";
+import { BotonAgregarCarrito } from "@/componentes/publico/BotonAgregarCarrito";
 
-export const revalidate = 60;
+// Fase 6 del plan de mejoras: con reservas de carrito, `disponibles` cambia
+// cada vez que alguien agrega/saca algo de un carrito — ya no alcanza con
+// revalidar cada 60s (ISR), tiene que leer siempre el número real.
+export const dynamic = "force-dynamic";
 
 async function cargarEvento(slugId: string) {
   const id = idDesdeSlug(slugId);
@@ -53,6 +59,23 @@ export default async function PaginaEvento({
   const slugCanonico = armarSlugEvento(evento.id, evento.nombre);
   if (slugId !== slugCanonico) {
     permanentRedirect(`/eventos/${slugCanonico}`);
+  }
+
+  // Elegir un asiento puntual en el carrito (Fase 6 del plan de mejoras)
+  // solo está disponible para un comprador logueado — un invitado sigue
+  // agregando "N numeradas sin asignar" (auto-asignadas en el checkout),
+  // mismo criterio que ya regía la compra directa.
+  const usuario = await usuarioActual();
+  const compradorSesion = usuario && (usuario.rol === "comprador" || usuario.rol === "superadmin") ? usuario : null;
+  const asientosPorTanda = new Map<number, AsientoDisponible[]>();
+  if (compradorSesion) {
+    await Promise.all(
+      evento.tandas
+        .filter((t) => t.tipo === "numerada")
+        .map(async (t) => {
+          asientosPorTanda.set(t.id, await obtenerAsientosDisponibles(t.id));
+        }),
+    );
   }
 
   const jsonLd = {
@@ -109,6 +132,12 @@ export default async function PaginaEvento({
             <span>Organiza: {evento.organizadorNombre}</span>
           </div>
           {evento.descripcion ? <p className="mt-4 text-[14px] text-muted">{evento.descripcion}</p> : null}
+          <div className="mt-4">
+            <BotonCompartir
+              titulo={evento.nombre}
+              url={`https://eike.com.py/eventos/${slugCanonico}`}
+            />
+          </div>
         </div>
       </div>
 
@@ -128,12 +157,14 @@ export default async function PaginaEvento({
                   </div>
                 </div>
                 {tanda.disponibles > 0 ? (
-                  <Link
-                    href={`/eventos/${slugCanonico}/comprar?tanda=${tanda.id}`}
-                    className="eike-btn eike-btn--cyan"
-                  >
-                    Comprar
-                  </Link>
+                  <BotonAgregarCarrito
+                    tandaId={tanda.id}
+                    tipo={tanda.tipo}
+                    disponibles={tanda.disponibles}
+                    asientosDisponibles={
+                      tanda.tipo === "numerada" && compradorSesion ? (asientosPorTanda.get(tanda.id) ?? []) : undefined
+                    }
+                  />
                 ) : (
                   <Boton disabled variante="ghost">
                     Agotado

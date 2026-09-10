@@ -16,6 +16,7 @@
     "seed": "tsx --env-file=.env scripts/seed.ts",
     "seed:superadmin": "tsx --env-file=.env scripts/seed-superadmin.ts",
     "migrar": "tsx --env-file=.env scripts/migrar-mariadb.ts",
+    "barrer": "tsx --env-file=.env scripts/barrer.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

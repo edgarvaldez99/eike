@@ -35,9 +35,32 @@ services:
       SESSION_SECRET: ${SESSION_SECRET}
       UPLOADS_DIR: /app/uploads
       SITE_URL: ${SITE_URL}
+      # ${VAR:-false}, no ${VAR}: si .env no define COOKIE_SECURE todavía
+      # (antes del cutover) esto tiene que salir false, no vacío/undefined
+      # — un string vacío en process.env.COOKIE_SECURE no es "false".
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      MANTENIMIENTO_TOKEN: ${MANTENIMIENTO_TOKEN}
       NODE_OPTIONS: --max-old-space-size=384
     volumes:
       - uploads:/app/uploads
+
+  # Barrido de reservas vencidas (Fase 3 del plan de mejoras). Un loop de
+  # shell y no un cron daemon a propósito: un contenedor menos pesado en una
+  # VM de 1 GB de RAM, y no hay nada más que programar acá todavía.
+  sweeper:
+    image: curlimages/curl:8.11.1
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      MANTENIMIENTO_TOKEN: ${MANTENIMIENTO_TOKEN}
+    entrypoint: >
+      /bin/sh -c '
+        while true; do
+          curl -fsS -X POST -H "Authorization: Bearer $$MANTENIMIENTO_TOKEN" http://web:3000/api/mantenimiento/barrer || true;
+          sleep 60;
+        done
+      '
 
   caddy:
     image: caddy:2-alpine
@@ -45,6 +68,13 @@ services:
     depends_on:
       - web
     ports:
+      # Solo 80 acá en el repo: mientras se prueba por IP (Fase 7) el
+      # Caddyfile no tiene ningún site que necesite TLS, así que nada
+      # escucha adentro en 443 — publicar ese puerto igual hacía que Docker
+      # aceptara la conexión TCP y la cerrara a mitad del handshake
+      # (ERR_CONNECTION_CLOSED en el navegador, en vez de un connection
+      # refused prolijo). activar-dominio.sh agrega la línea "443:443" acá
+      # mismo (con sed) en el cutover — este archivo en la VM ya la tiene.
       - "80:80"
       - "443:443"
     volumes:

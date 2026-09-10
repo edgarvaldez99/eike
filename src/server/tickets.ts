@@ -1,10 +1,18 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, lte, sql } from "drizzle-orm";
 import { db } from "@/db/cliente";
-import { asientos, eventos, tandas, tickets } from "@/db/esquema";
+import { asientos, cuponUsos, eventos, ordenes, tandas, tickets } from "@/db/esquema";
 import { ErrorNegocio } from "@/lib/errores";
 import type { UsuarioSesion } from "@/lib/auth/sesion";
-import { generarCodigoTicket } from "@/lib/qr";
+import { generarCodigoOrden, generarCodigoTicket } from "@/lib/qr";
 import { escribirComprobante, type ComprobantePreparado } from "@/lib/archivos/comprobante";
+import { consumirCupon } from "@/server/cupones";
+import {
+  esVentaReferidaValida,
+  otorgarPremiosPendientes,
+  registrarVentaReferida,
+  resolverReferidor,
+  sincronizarVentaReferidaYPremios,
+} from "@/server/referidos";
 
 /** "Hoy" calendario en Asunción, como epoch de días (medianoche UTC de ese día). */
 function fechaSoloDiaAsuncion(fecha: Date): number {
@@ -76,7 +84,7 @@ export async function obtenerDashboard(evento: typeof eventos.$inferSelect): Pro
         SUM(CASE WHEN tk.estado = 'usado' AND NOT tk.es_cortesia THEN 1 ELSE 0 END) AS usados,
         SUM(CASE WHEN tk.estado = 'anulado' THEN 1 ELSE 0 END) AS anulados,
         SUM(CASE WHEN tk.estado IN ('disponible', 'usado') AND tk.es_cortesia THEN 1 ELSE 0 END) AS cortesias,
-        SUM(CASE WHEN tk.estado IN ('disponible', 'usado') AND NOT tk.es_cortesia THEN t.precio ELSE 0 END) AS ingresos
+        SUM(CASE WHEN tk.estado IN ('disponible', 'usado') AND NOT tk.es_cortesia THEN tk.precio_pagado ELSE 0 END) AS ingresos
       FROM tandas t
       LEFT JOIN tickets tk ON tk.tanda_id = t.id
      WHERE t.evento_id = ${evento.id}
@@ -114,9 +122,8 @@ export async function obtenerDashboard(evento: typeof eventos.$inferSelect): Pro
     totales.pendientes + totales.disponibles + totales.usados + totales.anulados + totales.cortesias;
 
   const { rows: filaHoy } = await db.execute<{ tickets: number; ingresos: number }>(sql`
-    SELECT COUNT(*) AS tickets, COALESCE(SUM(td.precio), 0) AS ingresos
+    SELECT COUNT(*) AS tickets, COALESCE(SUM(tk.precio_pagado), 0) AS ingresos
       FROM tickets tk
-      JOIN tandas td ON td.id = tk.tanda_id
      WHERE tk.evento_id = ${evento.id} AND tk.estado IN ('disponible', 'usado') AND NOT tk.es_cortesia
        AND (tk.fecha_compra AT TIME ZONE 'America/Asuncion')::date = (now() AT TIME ZONE 'America/Asuncion')::date
   `);
@@ -127,9 +134,8 @@ export async function obtenerDashboard(evento: typeof eventos.$inferSelect): Pro
   // para no mezclar "cuándo se vendió" con "cuándo se canceló".
   const { rows: filasVentas } = await db.execute<{ fecha: string; tickets: number; ingresos: number }>(sql`
     SELECT (tk.fecha_compra AT TIME ZONE 'America/Asuncion')::date AS fecha,
-           COUNT(*) AS tickets, COALESCE(SUM(td.precio), 0) AS ingresos
+           COUNT(*) AS tickets, COALESCE(SUM(tk.precio_pagado), 0) AS ingresos
       FROM tickets tk
-      JOIN tandas td ON td.id = tk.tanda_id
      WHERE tk.evento_id = ${evento.id} AND tk.estado IN ('disponible', 'usado') AND NOT tk.es_cortesia
        AND tk.fecha_compra >= (now() AT TIME ZONE 'America/Asuncion')::date - INTERVAL '13 days'
      GROUP BY 1
@@ -175,7 +181,7 @@ export async function obtenerDashboard(evento: typeof eventos.$inferSelect): Pro
   return { porTanda, totales: { ...totales, ticketsGenerados }, hoy, tendencia, proyeccion };
 }
 
-export interface TicketPendiente {
+export interface OrdenPendiente {
   id: number;
   codigo: string;
   nombreComprador: string;
@@ -184,15 +190,22 @@ export interface TicketPendiente {
   fechaCompra: Date;
   reservadoHasta: Date | null;
   eventoNombre: string;
+  // Hoy una orden tiene siempre 1 ticket (1:1), así que alcanza con mostrar
+  // la tanda de ese único ticket. Cuando el carrito (Fase 6) permita
+  // mezclar tandas en una orden, esto necesita agregarse ("N tandas") en vez
+  // de asumir una sola — dejar la advertencia si se toca esta función.
   tandaNombre: string;
-  precio: number;
+  cantidadTickets: number;
+  total: number;
 }
 
-/** Puerto de tickets.php?accion=listar_pendientes. El evento (si se pasa) ya se validó. */
+/** Puerto de tickets.php?accion=listar_pendientes, adaptado a la Fase 5: la
+ * cola de aprobación lista ÓRDENES, no tickets sueltos — un organizador
+ * aprueba/rechaza la compra entera. El evento (si se pasa) ya se validó. */
 export async function obtenerPendientes(
   usuario: UsuarioSesion,
   eventoId?: number,
-): Promise<TicketPendiente[]> {
+): Promise<OrdenPendiente[]> {
   const { rows } = await db.execute<{
     id: number;
     codigo: string;
@@ -203,16 +216,19 @@ export async function obtenerPendientes(
     reservado_hasta: string | null;
     evento_nombre: string;
     tanda_nombre: string;
-    precio: number;
+    cantidad_tickets: number;
+    total: number;
   }>(sql`
-    SELECT tk.id, tk.codigo, tk.nombre_comprador, tk.cedula, tk.email, tk.fecha_compra, tk.reservado_hasta,
-           e.nombre AS evento_nombre, td.nombre AS tanda_nombre, td.precio
-      FROM tickets tk
+    SELECT o.id, o.codigo, o.nombre_comprador, o.cedula, o.email, o.creado_en AS fecha_compra,
+           o.reservado_hasta, o.cantidad_tickets, o.total,
+           e.nombre AS evento_nombre, td.nombre AS tanda_nombre
+      FROM ordenes o
+      JOIN tickets tk ON tk.orden_id = o.id
       JOIN eventos e ON e.id = tk.evento_id
       JOIN tandas td ON td.id = tk.tanda_id
-     WHERE tk.estado = 'pendiente'
-       ${eventoId ? sql`AND tk.evento_id = ${eventoId}` : usuario.rol === "superadmin" ? sql`` : sql`AND e.organizador_id = ${usuario.id}`}
-     ORDER BY tk.fecha_compra
+     WHERE o.estado = 'pendiente'
+       ${eventoId ? sql`AND tk.evento_id = ${eventoId}` : usuario.rol === "superadmin" ? sql`` : sql`AND o.organizador_id = ${usuario.id}`}
+     ORDER BY o.creado_en
   `);
   return rows.map((f) => ({
     id: f.id,
@@ -224,124 +240,135 @@ export async function obtenerPendientes(
     reservadoHasta: f.reservado_hasta ? new Date(f.reservado_hasta) : null,
     eventoNombre: f.evento_nombre,
     tandaNombre: f.tanda_nombre,
-    precio: Number(f.precio),
+    cantidadTickets: Number(f.cantidad_tickets),
+    total: Number(f.total),
   }));
 }
 
-/** Puerto de tickets.php::ticketPendientePropio + acción aprobar/rechazar. */
-export async function obtenerTicketPendientePropio(id: number, usuario: UsuarioSesion) {
-  const [fila] = await db
-    .select({ ticket: tickets, organizadorId: eventos.organizadorId })
-    .from(tickets)
-    .innerJoin(eventos, eq(eventos.id, tickets.eventoId))
-    .where(eq(tickets.id, id))
-    .limit(1);
-
-  if (!fila) throw new ErrorNegocio("Ticket no encontrado.");
-  if (usuario.rol !== "superadmin" && fila.organizadorId !== usuario.id) {
-    throw new ErrorNegocio("Ese ticket no te pertenece.");
+/** Puerto de tickets.php::ticketPendientePropio, adaptado a órdenes (Fase 5). */
+export async function obtenerOrdenPendientePropia(id: number, usuario: UsuarioSesion) {
+  const [orden] = await db.select().from(ordenes).where(eq(ordenes.id, id)).limit(1);
+  if (!orden) throw new ErrorNegocio("Orden no encontrada.");
+  if (usuario.rol !== "superadmin" && orden.organizadorId !== usuario.id) {
+    throw new ErrorNegocio("Esa orden no te pertenece.");
   }
-  if (fila.ticket.estado !== "pendiente") {
-    throw new ErrorNegocio("Solo se pueden aprobar/rechazar tickets pendientes.");
+  if (orden.estado !== "pendiente") {
+    throw new ErrorNegocio("Solo se pueden aprobar/rechazar órdenes pendientes.");
   }
-  return fila.ticket;
+  return orden;
 }
 
-export async function aprobarTicket(ticket: typeof tickets.$inferSelect, usuario: UsuarioSesion) {
-  await db
-    .update(tickets)
-    .set({ estado: "disponible", aprobadoPor: usuario.id })
-    .where(eq(tickets.id, ticket.id));
-}
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-export async function rechazarTicket(ticket: typeof tickets.$inferSelect) {
-  await db.transaction(async (tx) => {
-    await tx.update(tickets).set({ estado: "anulado" }).where(eq(tickets.id, ticket.id));
-    await tx
-      .update(tandas)
-      .set({ cantidadVendida: sql`${tandas.cantidadVendida} - 1` })
-      .where(sql`${tandas.id} = ${ticket.tandaId} AND ${tandas.cantidadVendida} > 0`);
-    if (ticket.asientoId !== null) {
-      await tx.update(asientos).set({ estado: "disponible" }).where(eq(asientos.id, ticket.asientoId));
+/**
+ * Aprueba TODOS los tickets de la orden en una sola transacción (hoy es
+ * siempre 1, ver comentario de OrdenPendiente). De paso arregla un bug
+ * latente: antes (aprobarTicket) el asiento de una compra numerada paga
+ * quedaba en 'reservado' para siempre — nunca pasaba a 'vendido'.
+ * Devuelve los eventoId tocados, para que el caller revalide sus páginas.
+ */
+export async function aprobarOrden(orden: typeof ordenes.$inferSelect, usuario: UsuarioSesion): Promise<number[]> {
+  return db.transaction(async (tx) => {
+    const ticketsDeLaOrden = await tx.select().from(tickets).where(eq(tickets.ordenId, orden.id));
+    for (const ticket of ticketsDeLaOrden) {
+      await tx
+        .update(tickets)
+        .set({ estado: "disponible", aprobadoPor: usuario.id })
+        .where(eq(tickets.id, ticket.id));
+      if (ticket.asientoId !== null) {
+        await tx.update(asientos).set({ estado: "vendido" }).where(eq(asientos.id, ticket.asientoId));
+      }
     }
+    await tx
+      .update(ordenes)
+      .set({ estado: "pagada", aprobadoPor: usuario.id })
+      .where(eq(ordenes.id, orden.id));
+    // Fase 8: si esta orden tenía una venta referida pendiente, ahora
+    // cuenta como válida — y de paso se intenta otorgar el premio que
+    // corresponda (no-op si no hay ninguno pendiente).
+    await sincronizarVentaReferidaYPremios(tx, orden.id, "valida");
+    return [...new Set(ticketsDeLaOrden.map((t) => t.eventoId))];
   });
 }
 
-export interface DatosCrearCortesia {
-  tandaId: number;
-  nombreComprador: string;
-  email: string;
-  cedula: string | null;
-  contacto: string | null;
+/** Anula el ticket y devuelve su asiento (si tenía). El stock de la tanda
+ * (cantidad_vendida, y el toggle activa<->agotada) ya NO se toca acá: lo
+ * mantiene solo el trigger trg_tickets_stock en cuanto ve este UPDATE de
+ * estado a 'anulado' (ver drizzle/0002_precio_ticket_y_trigger_stock.sql,
+ * Fase 4). */
+async function anularYLiberarStock(tx: Tx, ticket: typeof tickets.$inferSelect) {
+  await tx.update(tickets).set({ estado: "anulado" }).where(eq(tickets.id, ticket.id));
+  if (ticket.asientoId !== null) {
+    await tx.update(asientos).set({ estado: "disponible" }).where(eq(asientos.id, ticket.asientoId));
+  }
+}
+
+/** Rechaza la orden entera: anula todos sus tickets y libera su stock/asientos.
+ * Devuelve los eventoId tocados, para que el caller revalide sus páginas. */
+export async function rechazarOrden(orden: typeof ordenes.$inferSelect): Promise<number[]> {
+  return db.transaction(async (tx) => {
+    const ticketsDeLaOrden = await tx.select().from(tickets).where(eq(tickets.ordenId, orden.id));
+    for (const ticket of ticketsDeLaOrden) {
+      await anularYLiberarStock(tx, ticket);
+    }
+    await tx.update(ordenes).set({ estado: "rechazada" }).where(eq(ordenes.id, orden.id));
+    // Fase 8: si tenía una venta referida, se anula con la orden.
+    await sincronizarVentaReferidaYPremios(tx, orden.id, "anulada");
+    return [...new Set(ticketsDeLaOrden.map((t) => t.eventoId))];
+  });
 }
 
 /**
- * Emite un ticket gratuito dentro de un evento pago, sin pasar por
- * 'pendiente' ni pedir comprobante (docs/15 sección A). Puerto de
- * tickets.php?accion=crear_cortesia.
+ * Barrido de reservas vencidas (Fase 3 del plan de mejoras — bug real de
+ * producción, no una feature nueva; adaptado a órdenes en la Fase 5).
+ * `ordenes.reservado_hasta` y sus dos índices existían desde el día uno de
+ * la Fase 3, pero ningún código los consultaba jamás: una orden "pendiente"
+ * nunca aprobada retenía su cupo para siempre.
+ *
+ * Cada candidato se re-verifica ("¿sigue pendiente Y sigue vencido?") bajo
+ * `FOR UPDATE` dentro de su propia transacción, para no pisar una
+ * aprobación/rechazo manual que el organizador hizo un instante antes.
+ * Una transacción por orden, nunca todas juntas: así una orden con datos
+ * raros no bloquea el barrido de las demás.
  */
-export async function crearCortesia(
-  usuario: UsuarioSesion,
-  datos: DatosCrearCortesia,
-): Promise<{ id: number; codigo: string; eventoId: number }> {
-  return db.transaction(async (tx) => {
-    const [tanda] = await tx
-      .select()
-      .from(tandas)
-      .where(eq(tandas.id, datos.tandaId))
-      .for("update");
-    if (!tanda) throw new ErrorNegocio("Tanda no encontrada.");
+export async function barrerReservasVencidas(limite = 200): Promise<number> {
+  const candidatos = await db
+    .select({ id: ordenes.id })
+    .from(ordenes)
+    .where(and(eq(ordenes.estado, "pendiente"), lte(ordenes.reservadoHasta, new Date())))
+    .orderBy(ordenes.id)
+    .limit(limite);
 
-    const [evento] = await tx.select().from(eventos).where(eq(eventos.id, tanda.eventoId)).limit(1);
-    if (!evento) throw new ErrorNegocio("Evento no encontrado.");
-    if (usuario.rol !== "superadmin" && evento.organizadorId !== usuario.id) {
-      throw new ErrorNegocio("Ese evento no te pertenece.");
-    }
-
-    if (tanda.cantidadVendida >= tanda.cantidadTotal) {
-      throw new ErrorNegocio("Esa tanda está agotada, no quedan cupos para emitir cortesías.");
-    }
-
-    let asientoId: number | null = null;
-    if (tanda.tipo === "numerada") {
-      const [asiento] = await tx
+  let liberadas = 0;
+  for (const { id } of candidatos) {
+    const seLiberoEsta = await db.transaction(async (tx) => {
+      const [orden] = await tx
         .select()
-        .from(asientos)
-        .where(sql`${asientos.tandaId} = ${datos.tandaId} AND ${asientos.estado} = 'disponible'`)
-        .orderBy(asientos.id)
-        .limit(1)
-        .for("update", { skipLocked: true });
-      if (!asiento) throw new ErrorNegocio("No quedan asientos disponibles en esa tanda.");
-      asientoId = asiento.id;
-      await tx.update(asientos).set({ estado: "vendido" }).where(eq(asientos.id, asientoId));
-    }
+        .from(ordenes)
+        .where(and(eq(ordenes.id, id), eq(ordenes.estado, "pendiente"), lte(ordenes.reservadoHasta, sql`now()`)))
+        .for("update");
+      if (!orden) return false; // alguien la aprobó/rechazó justo ahora
 
-    const codigo = generarCodigoTicket();
-    const [creado] = await tx
-      .insert(tickets)
-      .values({
-        codigo,
-        eventoId: tanda.eventoId,
-        tandaId: datos.tandaId,
-        asientoId,
-        nombreComprador: datos.nombreComprador,
-        cedula: datos.cedula,
-        email: datos.email,
-        contacto: datos.contacto,
-        estado: "disponible",
-        esCortesia: true,
-        aprobadoPor: usuario.id,
-      })
-      .returning({ id: tickets.id });
-
-    await tx
-      .update(tandas)
-      .set({ cantidadVendida: sql`${tandas.cantidadVendida} + 1` })
-      .where(eq(tandas.id, datos.tandaId));
-
-    return { id: creado.id, codigo, eventoId: tanda.eventoId };
-  });
+      const ticketsDeLaOrden = await tx.select().from(tickets).where(eq(tickets.ordenId, orden.id));
+      for (const ticket of ticketsDeLaOrden) {
+        await anularYLiberarStock(tx, ticket);
+      }
+      await tx.update(ordenes).set({ estado: "vencida" }).where(eq(ordenes.id, orden.id));
+      // Fase 8: si tenía una venta referida, se anula con la orden.
+      await sincronizarVentaReferidaYPremios(tx, orden.id, "anulada");
+      return true;
+    });
+    if (seLiberoEsta) liberadas++;
+  }
+  return liberadas;
 }
+
+// emitirCortesia/crearCortesia viven en su propio archivo (server/cortesias.ts)
+// desde la Fase 8, no acá: server/referidos.ts necesita emitirCortesia para
+// otorgar premios, y si viviera en este archivo se armaría un import
+// circular tickets.ts <-> referidos.ts. Re-exportado para no tener que
+// tocar a quien ya lo importaba de acá (src/lib/acciones/tickets.ts).
+export { crearCortesia, emitirCortesia, type DatosCrearCortesia } from "./cortesias";
 
 export interface FiltroDetalleTickets {
   tandaId?: number;
@@ -359,7 +386,7 @@ export interface TicketDetalle {
   fechaCompra: Date;
   horaIngreso: Date | null;
   tandaNombre: string;
-  precio: number;
+  precioPagado: number;
   asientoIdentificador: string | null;
 }
 
@@ -379,12 +406,12 @@ export async function obtenerDetalleTickets(
     fecha_compra: string;
     hora_ingreso: string | null;
     tanda_nombre: string;
-    precio: number;
+    precio_pagado: number;
     asiento_identificador: string | null;
   }>(sql`
     SELECT tk.id, tk.codigo, tk.nombre_comprador, tk.cedula, tk.email, tk.contacto,
            tk.estado, tk.fecha_compra, tk.hora_ingreso,
-           td.nombre AS tanda_nombre, td.precio, a.identificador AS asiento_identificador
+           td.nombre AS tanda_nombre, tk.precio_pagado, a.identificador AS asiento_identificador
       FROM tickets tk
       JOIN tandas td ON td.id = tk.tanda_id
       LEFT JOIN asientos a ON a.id = tk.asiento_id
@@ -405,7 +432,7 @@ export async function obtenerDetalleTickets(
     fechaCompra: new Date(f.fecha_compra),
     horaIngreso: f.hora_ingreso ? new Date(f.hora_ingreso) : null,
     tandaNombre: f.tanda_nombre,
-    precio: Number(f.precio),
+    precioPagado: Number(f.precio_pagado),
     asientoIdentificador: f.asiento_identificador,
   }));
 }
@@ -414,7 +441,16 @@ export async function obtenerDetalleTickets(
 // Compra pública (Fase 5) — puerto de tickets.php?accion=comprar
 // ============================================================================
 
-const MINUTOS_RESERVA = 30; // igual que config.php: reserva_minutos
+// Antes 30 minutos (igual que config.php: reserva_minutos). Se subió a 48
+// horas en la Fase 3 del plan de mejoras: a los 30 minutos originales nunca
+// se llegó a barrer nada (ver barrerReservasVencidas más abajo — no existía
+// ningún barrido, así que un pendiente nunca aprobado retenía el cupo para
+// siempre). Auto-anular en 30 minutos una compra que YA tiene comprobante
+// subido es además peligroso: ese comprador pagó de verdad, y quien lo
+// verifica es el organizador a mano.
+// Exportada: server/carrito.ts (Fase 6) la reutiliza para la orden que
+// genera el checkout del carrito — misma ventana, una sola fuente de verdad.
+export const HORAS_RESERVA = 48;
 
 export interface DatosComprar {
   eventoId: number;
@@ -428,6 +464,16 @@ export interface DatosComprar {
   comprobanteTexto: string | null;
   /** Ya validado en memoria (ver lib/archivos/comprobante.ts) antes de llamar acá. */
   comprobante: ComprobantePreparado | null;
+  /** Fase 7 del plan de mejoras — cupón de descuento (opcional). Se
+   * re-valida y consume DENTRO de esta transacción — nunca confiar en un
+   * descuento calculado antes (ver previsualizarCupon, que es de solo
+   * lectura y puede quedar desactualizado entre la vista y el submit). */
+  codigoCupon: string | null;
+  /** Fase 8 del plan de mejoras — código de referido, de la cookie
+   * `eike_ref` (ver proxy.ts). Se resuelve y valida (anti-fraude)
+   * DENTRO de esta transacción — si no es válido, la compra sigue igual,
+   * simplemente sin atribuir la venta a nadie. */
+  codigoReferido: string | null;
 }
 
 /**
@@ -467,7 +513,47 @@ export async function comprarTicket(
       throw new ErrorNegocio("Esa tanda está agotada.");
     }
 
-    const esGratis = tanda.precio === 0;
+    // Fase 7: el cupón se consume ACÁ, ya con la tanda bloqueada y antes de
+    // decidir esGratis — un cupón del 100% tiene que dejar la tanda como
+    // gratis para todo lo que sigue (asiento 'vendido' en vez de
+    // 'reservado', sin exigir comprobante).
+    let cuponId: number | null = null;
+    let descuento = 0;
+    if (datos.codigoCupon) {
+      const consumido = await consumirCupon(tx, {
+        codigo: datos.codigoCupon,
+        organizadorId: evento.organizadorId,
+        eventoId: evento.id,
+        subtotal: tanda.precio,
+        email: datos.email,
+      });
+      cuponId = consumido.cuponId;
+      descuento = consumido.descuento;
+    }
+
+    const esGratis = tanda.precio - descuento <= 0;
+
+    // Fase 8: igual que el cupón, el referido se resuelve y valida ACÁ, ya
+    // con todo lo necesario para el anti-fraude (organizadorId, email,
+    // cédula, compradorId). Un código inválido o un auto-referido NUNCA
+    // rompe la compra — la venta simplemente queda sin atribuir a nadie.
+    let referidorId: number | null = null;
+    if (datos.codigoReferido) {
+      const referidor = await resolverReferidor(datos.codigoReferido);
+      if (
+        referidor &&
+        esVentaReferidaValida({
+          referidor,
+          organizadorId: evento.organizadorId,
+          compradorId,
+          email: datos.email,
+          cedula: datos.cedula,
+        })
+      ) {
+        referidorId = referidor.id;
+      }
+    }
+
     let asientoId: number | null = null;
 
     if (tanda.tipo === "numerada") {
@@ -507,19 +593,22 @@ export async function comprarTicket(
       throw new ErrorNegocio("Hace falta subir el comprobante de pago.");
     }
 
-    const codigo = generarCodigoTicket();
+    const codigoOrden = generarCodigoOrden();
     const estadoTicket = esGratis ? "disponible" : "pendiente";
-    const reservadoHasta = esGratis ? null : new Date(Date.now() + MINUTOS_RESERVA * 60 * 1000);
+    const estadoOrden = esGratis ? "pagada" : "pendiente";
+    const reservadoHasta = esGratis ? null : new Date(Date.now() + HORAS_RESERVA * 60 * 60 * 1000);
+    // El comprobante vive en la ORDEN, no en el ticket (Fase 5): con el
+    // carrito (Fase 6), N tickets de una misma orden van a compartir el
+    // mismo comprobante — nombrarlo ya por el código de la orden evita
+    // renombrar archivos después.
     const comprobanteArchivo =
-      !esGratis && datos.comprobante ? `${codigo}.${datos.comprobante.extension}` : null;
+      !esGratis && datos.comprobante ? `${codigoOrden}.${datos.comprobante.extension}` : null;
 
-    const [fila] = await tx
-      .insert(tickets)
+    const [orden] = await tx
+      .insert(ordenes)
       .values({
-        codigo,
-        eventoId: datos.eventoId,
-        tandaId: datos.tandaId,
-        asientoId,
+        codigo: codigoOrden,
+        organizadorId: evento.organizadorId,
         compradorId,
         nombreComprador: datos.nombreComprador,
         cedula: datos.cedula,
@@ -527,24 +616,84 @@ export async function comprarTicket(
         contacto: datos.contacto,
         comprobante: datos.comprobanteTexto,
         comprobanteArchivo,
-        estado: estadoTicket,
+        subtotal: tanda.precio,
+        descuento,
+        cuponId,
+        codigoCupon: cuponId !== null ? datos.codigoCupon : null,
+        referidoPorUsuarioId: referidorId,
+        codigoReferido: referidorId !== null ? datos.codigoReferido : null,
+        cantidadTickets: 1,
+        estado: estadoOrden,
         reservadoHasta,
       })
       .returning();
 
-    await tx
-      .update(tandas)
-      .set({ cantidadVendida: sql`${tandas.cantidadVendida} + 1` })
-      .where(eq(tandas.id, datos.tandaId));
+    const [fila] = await tx
+      .insert(tickets)
+      .values({
+        codigo: generarCodigoTicket(),
+        eventoId: datos.eventoId,
+        tandaId: datos.tandaId,
+        asientoId,
+        ordenId: orden.id,
+        compradorId,
+        nombreComprador: datos.nombreComprador,
+        cedula: datos.cedula,
+        email: datos.email,
+        contacto: datos.contacto,
+        estado: estadoTicket,
+        // Snapshot del precio (Fase 4): de acá en más el ticket no depende
+        // de tandas.precio para saber cuánto costó — ver esquema.ts.
+        precioUnitario: tanda.precio,
+        descuento,
+        reservadoHasta,
+      })
+      .returning();
 
-    return fila;
+    // Como una compra sigue siendo 1 ticket (sin carrito todavía, Fase 6),
+    // el descuento de la orden y el del ticket son siempre el mismo número
+    // — no hace falta "repartir" nada entre varios tickets.
+    if (cuponId !== null) {
+      await tx.insert(cuponUsos).values({
+        cuponId,
+        ordenId: orden.id,
+        compradorId,
+        email: datos.email,
+        montoDescontado: descuento,
+      });
+    }
+
+    // Fase 8: la venta referida nace 'valida' si la orden ya nació resuelta
+    // (gratis, o cupón del 100%) — no hay aprobación manual que la vaya a
+    // sincronizar después, así que el otorgamiento de premios se intenta
+    // ACÁ mismo, en la misma transacción.
+    if (referidorId !== null) {
+      await registrarVentaReferida(tx, {
+        referidorId,
+        ordenId: orden.id,
+        organizadorId: evento.organizadorId,
+        eventoId: evento.id,
+        cantidadTickets: 1,
+        monto: tanda.precio - descuento,
+        estadoInicial: estadoOrden === "pagada" ? "valida" : "pendiente",
+      });
+      if (estadoOrden === "pagada") {
+        await otorgarPremiosPendientes(tx, referidorId, evento.organizadorId, evento.id);
+      }
+    }
+
+    // El stock de la tanda (cantidad_vendida, y el toggle activa<->agotada
+    // de la Fase 2) lo actualiza solo el trigger trg_tickets_stock al ver
+    // este INSERT — ver drizzle/0002_precio_ticket_y_trigger_stock.sql.
+
+    return { ticket: fila, orden };
   });
 
-  if (datos.comprobante && creado.comprobanteArchivo) {
-    await escribirComprobante(datos.comprobante, creado.codigo);
+  if (datos.comprobante && creado.orden.comprobanteArchivo) {
+    await escribirComprobante(datos.comprobante, creado.orden.codigo);
   }
 
-  return creado;
+  return creado.ticket;
 }
 
 export interface MiTicket {
@@ -562,7 +711,7 @@ export interface MiTicket {
   aficheUrl: string | null;
   organizadorNombre: string;
   tandaNombre: string;
-  precio: number;
+  precioPagado: number;
   asientoIdentificador: string | null;
 }
 
@@ -583,13 +732,13 @@ export async function obtenerMisTickets(compradorId: number): Promise<MiTicket[]
     afiche_url: string | null;
     organizador_nombre: string;
     tanda_nombre: string;
-    precio: number;
+    precio_pagado: number;
     asiento_identificador: string | null;
   }>(sql`
     SELECT tk.id, tk.codigo, tk.estado, tk.nombre_comprador, tk.cedula, tk.fecha_compra, tk.reservado_hasta,
            e.id AS evento_id, e.nombre AS evento_nombre, e.fecha_evento, e.lugar, e.afiche_url,
            u.nombre AS organizador_nombre,
-           td.nombre AS tanda_nombre, td.precio, a.identificador AS asiento_identificador
+           td.nombre AS tanda_nombre, tk.precio_pagado, a.identificador AS asiento_identificador
       FROM tickets tk
       JOIN eventos e ON e.id = tk.evento_id
       JOIN usuarios u ON u.id = e.organizador_id
@@ -613,7 +762,7 @@ export async function obtenerMisTickets(compradorId: number): Promise<MiTicket[]
     aficheUrl: f.afiche_url,
     organizadorNombre: f.organizador_nombre,
     tandaNombre: f.tanda_nombre,
-    precio: Number(f.precio),
+    precioPagado: Number(f.precio_pagado),
     asientoIdentificador: f.asiento_identificador,
   }));
 }
@@ -645,14 +794,14 @@ export async function obtenerTicketPorCodigo(codigo: string): Promise<TicketPara
     afiche_url: string | null;
     organizador_nombre: string;
     tanda_nombre: string;
-    precio: number;
+    precio_pagado: number;
     asiento_identificador: string | null;
   }>(sql`
     SELECT tk.id, tk.codigo, tk.estado, tk.nombre_comprador, tk.cedula, tk.comprador_id,
            tk.fecha_compra, tk.reservado_hasta,
            e.id AS evento_id, e.nombre AS evento_nombre, e.fecha_evento, e.lugar, e.afiche_url,
            u.nombre AS organizador_nombre,
-           td.nombre AS tanda_nombre, td.precio, a.identificador AS asiento_identificador
+           td.nombre AS tanda_nombre, tk.precio_pagado, a.identificador AS asiento_identificador
       FROM tickets tk
       JOIN eventos e ON e.id = tk.evento_id
       JOIN usuarios u ON u.id = e.organizador_id
@@ -679,8 +828,66 @@ export async function obtenerTicketPorCodigo(codigo: string): Promise<TicketPara
     aficheUrl: f.afiche_url,
     organizadorNombre: f.organizador_nombre,
     tandaNombre: f.tanda_nombre,
-    precio: Number(f.precio),
+    precioPagado: Number(f.precio_pagado),
     asientoIdentificador: f.asiento_identificador,
+  };
+}
+
+export interface TicketDeOrden {
+  codigo: string;
+  tandaNombre: string;
+  asientoIdentificador: string | null;
+}
+
+export interface OrdenParaMostrar {
+  codigo: string;
+  eventoNombre: string;
+  fechaEvento: Date;
+  lugar: string | null;
+  tickets: TicketDeOrden[];
+}
+
+/**
+ * Orden por código, para /entradas/orden/[codigo] — el índice que ve el
+ * comprador justo después del checkout del carrito (Fase 6): una compra ya
+ * puede traer varios tickets (varias tandas/unidades) bajo un solo
+ * comprobante, así que hace falta una vista "resumen de la compra" antes de
+ * entrar a cada ticket individual (que sigue viviendo en /entradas/[codigo]).
+ * Mismo criterio de acceso que un ticket: el código ES la credencial.
+ */
+export async function obtenerOrdenParaMostrar(codigo: string): Promise<OrdenParaMostrar | null> {
+  const [orden] = await db.select().from(ordenes).where(eq(ordenes.codigo, codigo)).limit(1);
+  if (!orden) return null;
+
+  const { rows } = await db.execute<{
+    codigo: string;
+    tanda_nombre: string;
+    asiento_identificador: string | null;
+    evento_nombre: string;
+    fecha_evento: string;
+    lugar: string | null;
+  }>(sql`
+    SELECT tk.codigo, td.nombre AS tanda_nombre, a.identificador AS asiento_identificador,
+           e.nombre AS evento_nombre, e.fecha_evento, e.lugar
+      FROM tickets tk
+      JOIN tandas td ON td.id = tk.tanda_id
+      JOIN eventos e ON e.id = tk.evento_id
+      LEFT JOIN asientos a ON a.id = tk.asiento_id
+     WHERE tk.orden_id = ${orden.id}
+     ORDER BY tk.id
+  `);
+  if (rows.length === 0) return null;
+
+  return {
+    codigo: orden.codigo,
+    eventoNombre: rows[0].evento_nombre,
+    fechaEvento: new Date(rows[0].fecha_evento),
+    lugar: rows[0].lugar,
+    tickets: rows.map((f) => ({
+      codigo: f.codigo,
+      tandaNombre: f.tanda_nombre,
+      asientoIdentificador: f.asiento_identificador,
+    })),
   };
 }
 
@@ -707,9 +914,8 @@ export async function obtenerRankingCompradores(): Promise<RankingComprador[]> {
   }>(sql`
     SELECT u.id AS comprador_id, u.nombre, u.email,
            COUNT(*) AS tickets_comprados,
-           COALESCE(SUM(td.precio), 0) AS total_gastado
+           COALESCE(SUM(tk.precio_pagado), 0) AS total_gastado
       FROM tickets tk
-      JOIN tandas td ON td.id = tk.tanda_id
       JOIN usuarios u ON u.id = tk.comprador_id
      WHERE tk.estado IN ('disponible', 'usado')
      GROUP BY u.id
@@ -778,7 +984,7 @@ export interface TicketHistorialGlobal {
   eventoNombre: string;
   organizadorNombre: string;
   tandaNombre: string;
-  precio: number;
+  precioPagado: number;
   estado: string;
   fechaCompra: Date;
 }
@@ -795,13 +1001,13 @@ export async function obtenerHistorialGlobal(filtro: FiltroHistorialGlobal): Pro
     evento_nombre: string;
     organizador_nombre: string;
     tanda_nombre: string;
-    precio: number;
+    precio_pagado: number;
     estado: string;
     fecha_compra: string;
   }>(sql`
     SELECT tk.id, tk.codigo, tk.nombre_comprador, tk.cedula, tk.email,
            e.nombre AS evento_nombre, u.nombre AS organizador_nombre,
-           td.nombre AS tanda_nombre, td.precio, tk.estado, tk.fecha_compra
+           td.nombre AS tanda_nombre, tk.precio_pagado, tk.estado, tk.fecha_compra
       FROM tickets tk
       JOIN eventos e ON e.id = tk.evento_id
       JOIN usuarios u ON u.id = e.organizador_id
@@ -823,7 +1029,7 @@ export async function obtenerHistorialGlobal(filtro: FiltroHistorialGlobal): Pro
     eventoNombre: f.evento_nombre,
     organizadorNombre: f.organizador_nombre,
     tandaNombre: f.tanda_nombre,
-    precio: Number(f.precio),
+    precioPagado: Number(f.precio_pagado),
     estado: f.estado,
     fechaCompra: new Date(f.fecha_compra),
   }));

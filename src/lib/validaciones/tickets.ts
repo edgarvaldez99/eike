@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { zCasilla, zIdOpcional, zIdPositivo, zTextoOpcional } from "./comun";
 
-export const esquemaAprobarRechazarTicket = z.object({ id: zIdPositivo });
+// Fase 5 del plan de mejoras: "id" es el id de la ORDEN, no del ticket
+// (aprobar/rechazar ya no es por ticket — ver server/tickets.ts).
+export const esquemaAprobarRechazarOrden = z.object({ id: zIdPositivo });
 
 export const esquemaComprar = z.object({
   evento_id: zIdPositivo,
@@ -16,6 +18,8 @@ export const esquemaComprar = z.object({
   asiento_id: zIdOpcional(),
   tyc_aceptado: zCasilla(),
   comprobante_texto: zTextoOpcional(),
+  // Fase 7 del plan de mejoras — cupón de descuento (opcional).
+  codigo_cupon: zTextoOpcional(),
 });
 
 export const esquemaCrearCortesia = z.object({
