@@ -1,5 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+
+// Producto solo-oscuro por decisión de diseño (ver globals.css) — la barra
+// de estado del navegador/PWA coincide con el fondo en vez de quedar blanca.
+export const viewport: Viewport = {
+  themeColor: "#10141a",
+  colorScheme: "dark",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://eike.com.py"),

@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { obtenerOrdenParaMostrar } from "@/server/tickets";
+import { obtenerNumeroWhatsappPlataforma } from "@/server/cuenta";
 import { formatoFecha } from "@/lib/formato";
+import { AvisoComprobanteWhatsapp } from "@/componentes/publico/AvisoComprobanteWhatsapp";
+import { Icono } from "@/componentes/ui/Icono";
 
 // El código de la orden ES la credencial (mismo criterio que un ticket) —
 // nunca debe indexarse ni cachearse.
@@ -23,6 +26,9 @@ export default async function PaginaOrden({
   const { codigo } = await params;
   const orden = await obtenerOrdenParaMostrar(codigo);
   if (!orden) notFound();
+
+  const mostrarAvisoWhatsapp = orden.estado === "pendiente" && orden.total > 0;
+  const numeroWhatsapp = mostrarAvisoWhatsapp ? await obtenerNumeroWhatsappPlataforma() : null;
 
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-4">
@@ -47,7 +53,7 @@ export default async function PaginaOrden({
                 {ticket.tandaNombre}
                 {ticket.asientoIdentificador ? ` · ${ticket.asientoIdentificador}` : ""}
               </span>
-              <span>→</span>
+              <Icono nombre="flecha" />
             </Link>
           ))}
         </div>
@@ -58,6 +64,10 @@ export default async function PaginaOrden({
           Guardá este link — es tu comprobante de la compra completa.
         </p>
       </div>
+
+      {numeroWhatsapp ? (
+        <AvisoComprobanteWhatsapp numero={numeroWhatsapp} codigo={orden.codigo} />
+      ) : null}
     </div>
   );
 }

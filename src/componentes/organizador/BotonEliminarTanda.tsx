@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { eliminarTandaAction } from "@/lib/acciones/tandas";
 import { BotonConConfirmacion } from "@/componentes/ui/BotonConConfirmacion";
+import { AvisoError } from "@/componentes/ui/AvisoError";
+import { mensajeError } from "@/lib/estado-formulario";
 
 export function BotonEliminarTanda({ tandaId }: { tandaId: number }) {
   const [estado, accion, pendiente] = useActionState(eliminarTandaAction, null);
@@ -13,7 +15,7 @@ export function BotonEliminarTanda({ tandaId }: { tandaId: number }) {
       <form id={idForm} action={accion}>
         <input type="hidden" name="id" value={tandaId} />
       </form>
-      {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado)} />
       <BotonConConfirmacion
         formId={idForm}
         variante="ghost"

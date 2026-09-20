@@ -21,11 +21,17 @@ export default async function PaginaEventos() {
           No hay eventos publicados por el momento.
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {eventos.map((evento) => (
-            <TarjetaEvento key={evento.id} evento={evento} />
-          ))}
-        </div>
+        <>
+          {/* TarjetaEvento usa <h3> — correcto acá porque este <h2> oculto
+              cierra el salto h1→h3; en la home el <h2> "Próximos eventos"
+              visible ya cumple el mismo rol. */}
+          <h2 className="sr-only">Todos los eventos</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {eventos.map((evento) => (
+              <TarjetaEvento key={evento.id} evento={evento} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

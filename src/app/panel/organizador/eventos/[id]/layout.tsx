@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requerirSesion } from "@/lib/auth/guardas";
 import { obtenerEventoConTandas, obtenerMisEventos } from "@/server/eventos";
+import { Icono } from "@/componentes/ui/Icono";
 import { NavTabs } from "@/componentes/ui/NavTabs";
 import { Pill } from "@/componentes/ui/Pill";
 import { SwitcherEvento } from "@/componentes/organizador/SwitcherEvento";
@@ -40,8 +41,11 @@ export default async function LayoutDetalleEvento({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link href="/panel/organizador" className="text-[13px] text-cyan hover:underline">
-            ← Mis eventos
+          <Link
+            href="/panel/organizador"
+            className="inline-flex items-center gap-1 text-[13px] text-cyan underline"
+          >
+            <Icono nombre="flecha" direccion="izquierda" /> Mis eventos
           </Link>
           <div className="mb-2 mt-2">
             <SwitcherEvento actual={evento} eventos={misEventos} />
@@ -49,8 +53,14 @@ export default async function LayoutDetalleEvento({
           <span className="eike-eyebrow">Evento</span>
           <h1 className="mt-1 text-2xl font-extrabold">{evento.nombre}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-3.5 text-[13.5px] text-muted">
-            <span>📅 {formatoFecha(evento.fechaEvento)}</span>
-            {evento.lugar ? <span>📍 {evento.lugar}</span> : null}
+            <span className="flex items-center gap-1.5">
+              <Icono nombre="calendario" /> {formatoFecha(evento.fechaEvento)}
+            </span>
+            {evento.lugar ? (
+              <span className="flex items-center gap-1.5">
+                <Icono nombre="ubicacion" /> {evento.lugar}
+              </span>
+            ) : null}
             <Pill variante={PILL_ESTADO_EVENTO[evento.estado]}>{ETIQUETA_ESTADO[evento.estado]}</Pill>
             {evento.estado === "borrador" || evento.estado === "rechazado" ? (
               <BotonSolicitarAprobacion eventoId={evento.id} tamano="sm" />

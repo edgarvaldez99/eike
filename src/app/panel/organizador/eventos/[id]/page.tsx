@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requerirSesion } from "@/lib/auth/guardas";
 import { obtenerEventoConTandas } from "@/server/eventos";
 import { obtenerDashboard } from "@/server/tickets";
+import { Ayuda } from "@/componentes/ui/Ayuda";
 import { Card } from "@/componentes/ui/Card";
 import { Metrica } from "@/componentes/ui/Metrica";
 import { BarraOcupacion } from "@/componentes/organizador/BarraOcupacion";
@@ -43,9 +44,7 @@ export default async function PaginaResumenEvento({
           etiqueta={
             <>
               Proyección al evento
-              <span className="eike-help" title="Estimado según el ritmo de venta de los últimos 14 días">
-                ?
-              </span>
+              <Ayuda>Estimado según el ritmo de venta de los últimos 14 días.</Ayuda>
             </>
           }
           valor={formatoGs(dashboard.proyeccion.ingresos)}

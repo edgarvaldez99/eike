@@ -3,10 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { usuarioActual } from "@/lib/auth/sesion";
 import { obtenerOCrearCodigoReferido } from "@/server/referidos";
-import { cambiarPasswordPropio, editarAliasBancario, editarPerfilPropio } from "@/server/cuenta";
+import {
+  cambiarPasswordPropio,
+  editarAliasBancario,
+  editarNumeroWhatsappPlataforma,
+  editarPerfilPropio,
+} from "@/server/cuenta";
 import {
   esquemaCambiarPassword,
   esquemaEditarAliasBancario,
+  esquemaEditarNumeroWhatsapp,
   esquemaEditarPerfil,
 } from "@/lib/validaciones/cuenta";
 import { accionSegura } from "./marco";
@@ -51,6 +57,16 @@ export const editarAliasBancarioAction = accionSegura({
   roles: ["superadmin"],
   ejecutar: async (datos, usuario) => {
     await editarAliasBancario(usuario.id, { tipo: datos.alias_bancario_tipo, valor: datos.alias_bancario_valor });
+    revalidatePath("/panel/cuenta");
+  },
+});
+
+/** Solo superadmin — número de WhatsApp de la plataforma (ver server/cuenta.ts). */
+export const editarNumeroWhatsappAction = accionSegura({
+  esquema: esquemaEditarNumeroWhatsapp,
+  roles: ["superadmin"],
+  ejecutar: async (datos, usuario) => {
+    await editarNumeroWhatsappPlataforma(usuario.id, datos.numero_whatsapp);
     revalidatePath("/panel/cuenta");
   },
 });

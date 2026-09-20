@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { obtenerMiCodigoReferidoAction } from "@/lib/acciones/cuenta";
+import { Icono } from "@/componentes/ui/Icono";
 
 /**
  * Compartir un evento. En celular, `navigator.share()` abre el selector
@@ -52,7 +53,13 @@ export function BotonCompartir({ titulo, url }: { titulo: string; url: string })
   return (
     <div className="flex flex-wrap items-center gap-2">
       <button type="button" onClick={compartir} className="eike-btn eike-btn--cyan eike-btn--sm">
-        {copiado ? "¡Link copiado!" : "🔗 Compartir"}
+        {copiado ? (
+          "¡Link copiado!"
+        ) : (
+          <>
+            <Icono nombre="compartir" /> Compartir
+          </>
+        )}
       </button>
       <a
         href={`https://wa.me/?text=${encodeURIComponent(textoCompartido)}`}

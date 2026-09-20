@@ -27,6 +27,18 @@ export function formatoFecha(fecha: Date): string {
   return formateadorFecha.format(fecha);
 }
 
+/**
+ * Link "click to chat" de WhatsApp (wa.me), con el mensaje pre-cargado.
+ * wa.me exige el número en formato internacional, sin "+", espacios ni
+ * guiones — un celular paraguayo cargado en formato local (ej. 0991234567)
+ * lleva el 0 inicial reemplazado por el código de país 595.
+ */
+export function linkWhatsapp(numero: string, texto: string): string {
+  const digitos = numero.replace(/\D/g, "");
+  const numeroInternacional = digitos.startsWith("0") ? `595${digitos.slice(1)}` : digitos;
+  return `https://wa.me/${numeroInternacional}?text=${encodeURIComponent(texto)}`;
+}
+
 /** "Vence en 3h" / "Vencido, se libera pronto" — para la cola de aprobaciones.
  * Se calcula en el servidor a propósito (nunca mandar la fecha cruda y restar
  * en el cliente): el reloj de un celular real puede estar minutos desviado. */

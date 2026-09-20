@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { obtenerEventosPublicos } from "@/server/eventos";
 import { TarjetaEvento } from "@/componentes/publico/TarjetaEvento";
+import { Icono } from "@/componentes/ui/Icono";
 
 export const revalidate = 300;
 
@@ -26,8 +27,8 @@ export default async function Home() {
         <div className="flex items-center justify-between">
           <h2 className="text-[15px] font-extrabold">Próximos eventos</h2>
           {eventos.length > destacados.length ? (
-            <Link href="/eventos" className="text-[13px] text-cyan hover:underline">
-              Ver todos →
+            <Link href="/eventos" className="inline-flex items-center gap-1 text-[13px] text-cyan underline">
+              Ver todos <Icono nombre="flecha" />
             </Link>
           ) : null}
         </div>

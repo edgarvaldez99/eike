@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Icono } from "@/componentes/ui/Icono";
 import { formatoFecha } from "@/lib/formato";
 
 export interface EventoParaSwitcher {
@@ -41,12 +42,14 @@ export function SwitcherEvento({
         className="flex max-w-[280px] items-center gap-2 rounded-full border border-border bg-surface-2 px-3.5 py-1.5 text-[13px] font-semibold hover:border-cyan"
       >
         <span
+          aria-hidden="true"
           className={`h-1.5 w-1.5 flex-none rounded-full ${
             actual.estado === "publicado" ? "bg-green" : "bg-muted-dim"
           }`}
         />
+        <span className="sr-only">{PILL_LIVE[actual.estado]?.texto ?? actual.estado} · </span>
         <span className="truncate">{actual.nombre}</span>
-        <span className="text-muted">▾</span>
+        <Icono nombre="chevron" className="text-muted" />
       </button>
       {abierto ? (
         <div className="absolute top-[calc(100%+6px)] left-0 z-40 w-[300px] rounded-[var(--radius-eike)] border border-border bg-surface-3 p-1.5 shadow-xl">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requerirSesion } from "@/lib/auth/guardas";
 import { obtenerMisTickets } from "@/server/tickets";
 import { Card } from "@/componentes/ui/Card";
+import { CampoSelect } from "@/componentes/ui/CampoSelect";
 import { Metrica } from "@/componentes/ui/Metrica";
 import { Pill } from "@/componentes/ui/Pill";
 import { PILL_ESTADO_TICKET } from "@/lib/estilosEstado";
@@ -65,47 +66,62 @@ export default async function PaginaMisEntradas({
       {tickets.length === 0 ? (
         <div className="eike-card border-dashed p-8 text-center text-muted">
           Todavía no compraste ningún ticket.{" "}
-          <Link href="/eventos" className="text-cyan hover:underline">
+          <Link href="/eventos" className="text-cyan underline">
             Ver eventos
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {tickets.map((t) => (
-            <Link key={t.id} href={`/entradas/${t.codigo}`} className="eike-card flex flex-col gap-2 p-4">
-              <h3 className="text-[14px] font-bold leading-tight">{t.eventoNombre}</h3>
-              <div className="text-[12.5px] text-muted">{formatoFecha(t.fechaEvento)}</div>
-              <Pill variante={PILL_ESTADO_TICKET[t.estado as EstadoTicket] ?? "neutral"} className="w-fit">
-                {ETIQUETA_ESTADO[t.estado] ?? t.estado}
-              </Pill>
-              <div className="text-[12px] text-muted-dim">
-                {t.tandaNombre}
-                {t.asientoIdentificador ? ` · ${t.asientoIdentificador}` : ""}
-              </div>
-            </Link>
-          ))}
+        <div>
+          <h2 className="mb-3 text-[15px] font-extrabold">Tus entradas</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {tickets.map((t) => (
+              <Link key={t.id} href={`/entradas/${t.codigo}`} className="eike-card flex flex-col gap-2 p-4">
+                <h3 className="text-[14px] font-bold leading-tight">{t.eventoNombre}</h3>
+                <div className="text-[12.5px] text-muted">{formatoFecha(t.fechaEvento)}</div>
+                <Pill variante={PILL_ESTADO_TICKET[t.estado as EstadoTicket] ?? "neutral"} className="w-fit">
+                  {ETIQUETA_ESTADO[t.estado] ?? t.estado}
+                </Pill>
+                <div className="text-[12px] text-muted-dim">
+                  {t.tandaNombre}
+                  {t.asientoIdentificador ? ` · ${t.asientoIdentificador}` : ""}
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
       <div>
         <h2 className="mb-3 text-[15px] font-extrabold">Historial de compras</h2>
         <form className="mb-3 flex flex-wrap gap-3" method="get">
-          <select name="evento_id" defaultValue={eventoIdFiltro ?? ""} className="eike-campo-input w-auto">
+          <CampoSelect
+            etiqueta="Evento"
+            etiquetaOculta
+            name="evento_id"
+            defaultValue={eventoIdFiltro ?? ""}
+            className="eike-campo-input--densa w-auto"
+          >
             <option value="">Todos los eventos</option>
             {eventosUnicos.map(([id, nombre]) => (
               <option key={id} value={id}>
                 {nombre}
               </option>
             ))}
-          </select>
-          <select name="estado" defaultValue={estadoFiltro ?? ""} className="eike-campo-input w-auto">
+          </CampoSelect>
+          <CampoSelect
+            etiqueta="Estado"
+            etiquetaOculta
+            name="estado"
+            defaultValue={estadoFiltro ?? ""}
+            className="eike-campo-input--densa w-auto"
+          >
             <option value="">Todos los estados</option>
             {ESTADOS_TICKET.map((e) => (
               <option key={e} value={e}>
                 {ETIQUETA_ESTADO[e]}
               </option>
             ))}
-          </select>
+          </CampoSelect>
           <button type="submit" className="eike-btn eike-btn--ghost eike-btn--sm">
             Filtrar
           </button>

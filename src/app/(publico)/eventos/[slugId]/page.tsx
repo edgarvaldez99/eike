@@ -7,6 +7,7 @@ import { armarSlugEvento, idDesdeSlug } from "@/lib/slug";
 import { formatoFecha, formatoGs } from "@/lib/formato";
 import { Card } from "@/componentes/ui/Card";
 import { Boton } from "@/componentes/ui/Boton";
+import { Icono } from "@/componentes/ui/Icono";
 import { BotonCompartir } from "@/componentes/publico/BotonCompartir";
 import { BotonAgregarCarrito } from "@/componentes/publico/BotonAgregarCarrito";
 
@@ -116,19 +117,26 @@ export default async function PaginaEvento({
           <img
             src={evento.aficheUrl}
             alt={evento.nombre}
-            className="w-full rounded-[var(--radius-eike)] border border-border object-cover"
+            loading="lazy"
+            className="aspect-[3/4] w-full rounded-[var(--radius-eike)] border border-border object-cover"
           />
         ) : (
-          <div className="flex aspect-[3/4] w-full items-center justify-center rounded-[var(--radius-eike)] border border-border bg-surface-2 text-5xl">
-            🎟️
+          <div className="flex aspect-[3/4] w-full items-center justify-center rounded-[var(--radius-eike)] border border-border bg-surface-2 text-5xl text-muted-dim">
+            <Icono nombre="ticket" />
           </div>
         )}
 
         <div>
           <h1 className="text-2xl font-extrabold sm:text-3xl">{evento.nombre}</h1>
           <div className="mt-2 flex flex-col gap-1 text-[14px] text-muted">
-            <span>📅 {formatoFecha(evento.fechaEvento)}</span>
-            {evento.lugar ? <span>📍 {evento.lugar}</span> : null}
+            <span className="flex items-center gap-1.5">
+              <Icono nombre="calendario" /> {formatoFecha(evento.fechaEvento)}
+            </span>
+            {evento.lugar ? (
+              <span className="flex items-center gap-1.5">
+                <Icono nombre="ubicacion" /> {evento.lugar}
+              </span>
+            ) : null}
             <span>Organiza: {evento.organizadorNombre}</span>
           </div>
           {evento.descripcion ? <p className="mt-4 text-[14px] text-muted">{evento.descripcion}</p> : null}

@@ -27,3 +27,15 @@ export const esquemaEditarAliasBancario = z.object({
   alias_bancario_tipo: z.enum(TIPOS_ALIAS_BANCARIO),
   alias_bancario_valor: z.string().trim().min(1, "Falta el valor del alias."),
 });
+
+/** Solo superadmin — número de WhatsApp de la plataforma (ver constantes.ts),
+ * al que el comprador manda el comprobante tras una compra normal o por
+ * carrito. Se guarda tal cual lo carga el superadmin (linkWhatsapp, en
+ * lib/formato.ts, normaliza el formato recién al armar el link). */
+export const esquemaEditarNumeroWhatsapp = z.object({
+  numero_whatsapp: z
+    .string()
+    .trim()
+    .min(6, "Ese número no parece válido.")
+    .regex(/^[+\d][\d\s-]*$/, "Usá solo dígitos (podés empezar con +)."),
+});

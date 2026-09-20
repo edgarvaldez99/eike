@@ -105,6 +105,11 @@ import {
  *    autoedicion.sql) — alias bancario del superadmin (dato de la
  *    plataforma, no de cada organizador), para el mensaje de WhatsApp con
  *    las instrucciones de pago; nunca se muestra en el checkout.
+ *  - usuarios.numeroWhatsapp (drizzle/0010_numero_whatsapp_plataforma.sql)
+ *    — número de WhatsApp del superadmin (dato de la plataforma, mismo
+ *    criterio que el alias bancario de arriba), pero ESTE sí se muestra en
+ *    el checkout público: es el número al que el comprador manda su
+ *    comprobante de pago tras una compra normal o por carrito.
  */
 
 function checkEnum(
@@ -147,6 +152,13 @@ export const usuarios = pgTable(
     // garantiza editarAliasBancario (server/cuenta.ts), no una constraint.
     aliasBancarioTipo: text("alias_bancario_tipo").$type<TipoAliasBancario>(),
     aliasBancarioValor: varchar("alias_bancario_valor", { length: 100 }),
+    // Número de WhatsApp del superadmin (dato de la plataforma, mismo
+    // criterio que el alias bancario) — a diferencia de ese alias, ESTE sí
+    // se muestra en el checkout público (/entradas/[codigo] y
+    // /entradas/orden/[codigo]): es el canal de contacto para mandar el
+    // comprobante, no el destino del dinero. NULL hasta que el superadmin
+    // lo carga desde /panel/cuenta.
+    numeroWhatsapp: varchar("numero_whatsapp", { length: 30 }),
     creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

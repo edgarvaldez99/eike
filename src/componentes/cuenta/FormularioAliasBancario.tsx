@@ -3,7 +3,10 @@
 import { useActionState, useState } from "react";
 import { editarAliasBancarioAction } from "@/lib/acciones/cuenta";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
+import { CampoSelect } from "@/componentes/ui/CampoSelect";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
+import { errorCampo, mensajeError } from "@/lib/estado-formulario";
 import type { TipoAliasBancario } from "@/lib/constantes";
 
 const ETIQUETA_TIPO: Record<TipoAliasBancario, string> = {
@@ -65,30 +68,20 @@ export function FormularioAliasBancario({
 
   return (
     <form action={accion} className="flex flex-col gap-4">
-      <div>
-        <label htmlFor="alias_bancario_tipo" className="eike-campo-label">
-          Tipo de alias
-        </label>
-        <select
-          id="alias_bancario_tipo"
-          name="alias_bancario_tipo"
-          className="eike-campo-input"
-          defaultValue={tipoActual ?? "ruc"}
-        >
-          <option value="ruc">RUC</option>
-          <option value="cedula">Cédula / CI</option>
-          <option value="telefono">Teléfono</option>
-          <option value="correo">Correo electrónico</option>
-        </select>
-      </div>
+      <CampoSelect etiqueta="Tipo de alias" name="alias_bancario_tipo" defaultValue={tipoActual ?? "ruc"}>
+        <option value="ruc">RUC</option>
+        <option value="cedula">Cédula / CI</option>
+        <option value="telefono">Teléfono</option>
+        <option value="correo">Correo electrónico</option>
+      </CampoSelect>
       <CampoTexto
         etiqueta="Valor del alias"
         name="alias_bancario_valor"
         required
         defaultValue={valorActual ?? ""}
-        error={estado && !estado.ok ? estado.campos?.alias_bancario_valor : undefined}
+        error={errorCampo(estado, "alias_bancario_valor")}
       />
-      {estado && !estado.ok && !estado.campos ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado, ["alias_bancario_valor"])} />
       <div className="flex gap-2">
         <Boton type="submit" tamano="sm" disabled={pendiente} className="w-fit">
           {pendiente ? "Guardando…" : "Guardar alias"}

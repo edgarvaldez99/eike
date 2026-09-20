@@ -3,10 +3,12 @@
 import { useActionState, useState } from "react";
 import { checkoutCarritoAction } from "@/lib/acciones/carrito";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoImagen } from "@/componentes/ui/CampoImagen";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { CampoCuponCarrito, type CuponCarritoAplicado } from "@/componentes/publico/CampoCuponCarrito";
 import { formatoGs } from "@/lib/formato";
+import { errorCampo, mensajeError } from "@/lib/estado-formulario";
 import type { UsuarioSesion } from "@/lib/auth/sesion";
 
 /**
@@ -26,7 +28,6 @@ export function FormularioCheckoutCarrito({
   const [cupon, setCupon] = useState<CuponCarritoAplicado | null>(null);
   const total = cupon ? cupon.total : subtotal;
   const esGratis = total <= 0;
-  const errorCampo = (campo: string) => (estado && !estado.ok ? estado.campos?.[campo] : undefined);
 
   return (
     <form action={accion} encType="multipart/form-data" className="flex flex-col gap-4">
@@ -35,20 +36,37 @@ export function FormularioCheckoutCarrito({
       <CampoTexto
         etiqueta="Nombre completo"
         name="nombre_comprador"
+        autoComplete="name"
         required
         defaultValue={usuario?.nombre ?? ""}
-        error={errorCampo("nombre_comprador")}
+        error={errorCampo(estado, "nombre_comprador")}
       />
-      <CampoTexto etiqueta="Cédula" name="cedula" defaultValue={usuario?.cedula ?? ""} />
+      <CampoTexto
+        etiqueta="Cédula"
+        name="cedula"
+        inputMode="numeric"
+        autoComplete="off"
+        spellCheck={false}
+        defaultValue={usuario?.cedula ?? ""}
+      />
       <CampoTexto
         etiqueta="Email"
         type="email"
         name="email"
+        autoComplete="email"
+        spellCheck={false}
         required
         defaultValue={usuario?.email ?? ""}
-        error={errorCampo("email")}
+        error={errorCampo(estado, "email")}
       />
-      <CampoTexto etiqueta="Teléfono / WhatsApp" name="contacto" defaultValue={usuario?.telefono ?? ""} />
+      <CampoTexto
+        etiqueta="Teléfono / WhatsApp"
+        name="contacto"
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        defaultValue={usuario?.telefono ?? ""}
+      />
 
       {subtotal > 0 ? <CampoCuponCarrito onResultado={setCupon} /> : null}
 
@@ -63,7 +81,12 @@ export function FormularioCheckoutCarrito({
         </p>
       ) : (
         <>
-          <CampoTexto etiqueta="Nº de comprobante (opcional)" name="comprobante_texto" />
+          <CampoTexto
+            etiqueta="Nº de comprobante (opcional)"
+            name="comprobante_texto"
+            autoComplete="off"
+            spellCheck={false}
+          />
           <CampoImagen etiqueta="Comprobante de pago (imagen o PDF)" name="comprobante" required permitirPdf />
         </>
       )}
@@ -75,7 +98,7 @@ export function FormularioCheckoutCarrito({
         </label>
       ) : null}
 
-      {estado && !estado.ok && !estado.campos ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado, ["nombre_comprador", "email"])} />
 
       <Boton type="submit" disabled={pendiente} className="justify-center">
         {pendiente ? "Procesando…" : "Confirmar compra"}

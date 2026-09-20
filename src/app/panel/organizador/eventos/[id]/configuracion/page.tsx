@@ -78,7 +78,7 @@ export default async function PaginaConfiguracionEvento({
                   <th className="right">Precio</th>
                   <th className="right">Vendidas / Total</th>
                   <th>Estado</th>
-                  <th></th>
+                  <th aria-label="Acciones"></th>
                 </tr>
               </thead>
               <tbody>
@@ -135,7 +135,7 @@ export default async function PaginaConfiguracionEvento({
                   <th className="right">Usos</th>
                   <th>Vence</th>
                   <th>Estado</th>
-                  <th></th>
+                  <th aria-label="Acciones"></th>
                 </tr>
               </thead>
               <tbody>
@@ -185,7 +185,7 @@ export default async function PaginaConfiguracionEvento({
                   <th>Aplica a</th>
                   <th className="right">Ventas por premio</th>
                   <th>Estado</th>
-                  <th></th>
+                  <th aria-label="Acciones"></th>
                 </tr>
               </thead>
               <tbody>

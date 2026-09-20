@@ -3,6 +3,7 @@ import { requerirSesion } from "@/lib/auth/guardas";
 import { cerrarSesionAction } from "@/lib/acciones/auth";
 import { Avatar } from "@/componentes/ui/Avatar";
 import { Boton } from "@/componentes/ui/Boton";
+import { SkipLink } from "@/componentes/ui/SkipLink";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen">
+      <SkipLink destino="#contenido-principal" />
       <header className="eike-topbar">
         <div className="eike-topbar-row">
           <Link href="/" className="eike-brand">
@@ -53,7 +55,9 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-[1240px] p-6">{children}</main>
+      <main id="contenido-principal" className="mx-auto max-w-[1240px] p-6">
+        {children}
+      </main>
     </div>
   );
 }

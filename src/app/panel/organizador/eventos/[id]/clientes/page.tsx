@@ -3,6 +3,7 @@ import { requerirSesion } from "@/lib/auth/guardas";
 import { obtenerEventoConTandas } from "@/server/eventos";
 import { obtenerDetalleTickets } from "@/server/tickets";
 import { Card } from "@/componentes/ui/Card";
+import { CampoSelect } from "@/componentes/ui/CampoSelect";
 import { Pill } from "@/componentes/ui/Pill";
 import { PILL_ESTADO_TICKET } from "@/lib/estilosEstado";
 import { formatoFecha } from "@/lib/formato";
@@ -46,22 +47,34 @@ export default async function PaginaClientes({
       </div>
 
       <form className="flex flex-wrap gap-3" method="get">
-        <select name="tanda_id" defaultValue={tandaId ?? ""} className="eike-campo-input w-auto">
+        <CampoSelect
+          etiqueta="Tanda"
+          etiquetaOculta
+          name="tanda_id"
+          defaultValue={tandaId ?? ""}
+          className="eike-campo-input--densa w-auto"
+        >
           <option value="">Todas las tandas</option>
           {evento.tandas.map((t) => (
             <option key={t.id} value={t.id}>
               {t.nombre}
             </option>
           ))}
-        </select>
-        <select name="estado" defaultValue={estadoFiltro ?? ""} className="eike-campo-input w-auto">
+        </CampoSelect>
+        <CampoSelect
+          etiqueta="Estado"
+          etiquetaOculta
+          name="estado"
+          defaultValue={estadoFiltro ?? ""}
+          className="eike-campo-input--densa w-auto"
+        >
           <option value="">Todos los estados</option>
           {Object.entries(ETIQUETA_ESTADO).map(([valor, etiqueta]) => (
             <option key={valor} value={valor}>
               {etiqueta}
             </option>
           ))}
-        </select>
+        </CampoSelect>
         <button type="submit" className="eike-btn eike-btn--ghost eike-btn--sm">
           Filtrar
         </button>

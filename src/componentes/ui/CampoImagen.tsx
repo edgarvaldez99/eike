@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
+import { cn } from "@/lib/cn";
 
 const ANCHO_MAXIMO = 1600;
 const CALIDAD_JPEG = 0.85;
@@ -17,20 +18,31 @@ const CALIDAD_JPEG = 0.85;
  * servidor (guardarAfiche / prepararComprobante) es quien valida de verdad.
  * Este componente es una optimización de UX, no la validación.
  */
+type PropsCampoImagen = Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "type" | "onChange" | "name" | "ref" | "id"
+> & {
+  etiqueta: string;
+  name: string;
+  required?: boolean;
+  permitirPdf?: boolean;
+  error?: string;
+  id?: string;
+};
+
 export function CampoImagen({
   etiqueta,
   name,
   required,
   permitirPdf,
   error,
-}: {
-  etiqueta: string;
-  name: string;
-  required?: boolean;
-  permitirPdf?: boolean;
-  error?: string;
-}) {
-  const id = useId();
+  id,
+  className,
+  ...props
+}: PropsCampoImagen) {
+  const idGenerado = useId();
+  const idCampo = id ?? idGenerado;
+  const idError = `${idCampo}-error`;
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [pesoInfo, setPesoInfo] = useState<string | null>(null);
@@ -95,7 +107,7 @@ export function CampoImagen({
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="eike-campo-label">
+      <label htmlFor={idCampo} className="eike-campo-label">
         {etiqueta}
       </label>
       {preview ? (
@@ -108,7 +120,7 @@ export function CampoImagen({
       ) : null}
       <input
         ref={inputRef}
-        id={id}
+        id={idCampo}
         type="file"
         name={name}
         required={required}
@@ -118,11 +130,18 @@ export function CampoImagen({
             : "image/png,image/jpeg,image/webp"
         }
         onChange={manejarCambio}
-        className="text-[12.5px]"
+        className={cn("text-[12.5px]", className)}
+        aria-describedby={error ? idError : undefined}
+        aria-invalid={error ? true : undefined}
+        {...props}
       />
       {procesando ? <p className="text-[12px] text-muted-dim">Optimizando imagen…</p> : null}
       {!procesando && pesoInfo ? <p className="text-[12px] text-muted-dim">{pesoInfo}</p> : null}
-      {error ? <p className="eike-campo-error">{error}</p> : null}
+      {error ? (
+        <p id={idError} className="eike-campo-error">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

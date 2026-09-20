@@ -8,7 +8,7 @@ import { crearAsiento, crearEvento, crearOrden, crearTanda, crearTicket, crearUs
 import type { UsuarioSesion } from "@/lib/auth/sesion";
 
 function comoSesion(id: number, rol: UsuarioSesion["rol"]): UsuarioSesion {
-  return { id, rol, nombre: "Test", email: "test@test.com", telefono: null, cedula: null, estado: "activo", creadoEn: new Date(), codigoReferido: null, rucFacturacion: null, aliasBancarioTipo: null, aliasBancarioValor: null };
+  return { id, rol, nombre: "Test", email: "test@test.com", telefono: null, cedula: null, estado: "activo", creadoEn: new Date(), codigoReferido: null, rucFacturacion: null, aliasBancarioTipo: null, aliasBancarioValor: null, numeroWhatsapp: null };
 }
 
 /** Orden pendiente con un ticket de tanda numerada, asiento reservado. */

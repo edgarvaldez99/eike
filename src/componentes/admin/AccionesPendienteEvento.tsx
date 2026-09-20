@@ -4,8 +4,10 @@ import { useActionState, useState } from "react";
 import { aprobarEventoAction, rechazarEventoAction } from "@/lib/acciones/eventos";
 import { Boton } from "@/componentes/ui/Boton";
 import { BotonConConfirmacion } from "@/componentes/ui/BotonConConfirmacion";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { Modal } from "@/componentes/ui/Modal";
+import { errorCampo, mensajeError } from "@/lib/estado-formulario";
 
 /** Mismo patrón que AccionesPendienteOrganizador.tsx, para eventos
  * pendientes de aprobación (pedido anti-estafa). */
@@ -35,7 +37,7 @@ export function AccionesPendienteEvento({ eventoId }: { eventoId: number }) {
           Rechazar
         </Boton>
       </div>
-      {estadoAprobar && !estadoAprobar.ok ? <p className="eike-campo-error">{estadoAprobar.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estadoAprobar)} />
 
       <Modal titulo="Rechazar evento" abierto={abierto} onCerrar={() => setAbierto(false)}>
         <form action={accionRechazar} className="flex flex-col gap-4">
@@ -44,11 +46,9 @@ export function AccionesPendienteEvento({ eventoId }: { eventoId: number }) {
             etiqueta="Motivo (se le va a mostrar al organizador)"
             name="motivo"
             required
-            error={estadoRechazar && !estadoRechazar.ok ? estadoRechazar.campos?.motivo : undefined}
+            error={errorCampo(estadoRechazar, "motivo")}
           />
-          {estadoRechazar && !estadoRechazar.ok && !estadoRechazar.campos ? (
-            <p className="eike-campo-error">{estadoRechazar.error}</p>
-          ) : null}
+          <AvisoError mensaje={mensajeError(estadoRechazar, ["motivo"])} />
           <Boton type="submit" disabled={pendienteRechazar} className="justify-center">
             {pendienteRechazar ? "Rechazando…" : "Rechazar"}
           </Boton>

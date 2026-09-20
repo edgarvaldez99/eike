@@ -3,7 +3,11 @@
 import { useActionState, useState } from "react";
 import { crearProgramaAction } from "@/lib/acciones/referidos";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
+import { CampoSelect } from "@/componentes/ui/CampoSelect";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
+import { GrupoOpciones } from "@/componentes/ui/GrupoOpciones";
+import { errorCampo, mensajeError } from "@/lib/estado-formulario";
 
 /** Premios por compartir (Fase 8 del plan de mejoras): "cada N ventas
  * referidas, 1 cortesía de la tanda elegida acá". Deja los avanzados (tope
@@ -18,16 +22,20 @@ export function FormularioNuevoPrograma({
 }) {
   const [estado, accion, pendiente] = useActionState(crearProgramaAction, null);
   const [alcance, setAlcance] = useState<"evento" | "todos">("evento");
-  const errorCampo = (campo: string) => (estado && !estado.ok ? estado.campos?.[campo] : undefined);
 
   return (
     <form action={accion} className="eike-card flex flex-col gap-4 p-4">
       {alcance === "evento" ? <input type="hidden" name="evento_id" value={eventoId} /> : null}
 
-      <CampoTexto etiqueta="Nombre del programa" name="nombre" required placeholder="Embajadores" error={errorCampo("nombre")} />
+      <CampoTexto
+        etiqueta="Nombre del programa"
+        name="nombre"
+        required
+        placeholder="Embajadores"
+        error={errorCampo(estado, "nombre")}
+      />
 
-      <div>
-        <label className="eike-campo-label">Aplica a</label>
+      <GrupoOpciones etiqueta="Aplica a">
         <div className="mt-1 flex gap-4 text-[13px]">
           <label className="flex items-center gap-1.5">
             <input type="radio" checked={alcance === "evento"} onChange={() => setAlcance("evento")} />
@@ -38,7 +46,7 @@ export function FormularioNuevoPrograma({
             Todos mis eventos
           </label>
         </div>
-      </div>
+      </GrupoOpciones>
 
       <CampoTexto
         etiqueta="Ventas referidas por premio"
@@ -47,26 +55,28 @@ export function FormularioNuevoPrograma({
         min={1}
         required
         defaultValue={5}
-        error={errorCampo("ventas_requeridas")}
+        error={errorCampo(estado, "ventas_requeridas")}
       />
 
-      <div>
-        <label className="eike-campo-label">Premio: cortesía de</label>
-        <select name="tanda_premio_id" required className="eike-campo-input" disabled={tandas.length === 0}>
-          {tandas.length === 0 ? (
-            <option value="">Creá una tanda primero</option>
-          ) : (
-            tandas.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.nombre}
-              </option>
-            ))
-          )}
-        </select>
-        {errorCampo("tanda_premio_id") ? <p className="eike-campo-error">{errorCampo("tanda_premio_id")}</p> : null}
-      </div>
+      <CampoSelect
+        etiqueta="Premio: cortesía de"
+        name="tanda_premio_id"
+        required
+        disabled={tandas.length === 0}
+        error={errorCampo(estado, "tanda_premio_id")}
+      >
+        {tandas.length === 0 ? (
+          <option value="">Creá una tanda primero</option>
+        ) : (
+          tandas.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.nombre}
+            </option>
+          ))
+        )}
+      </CampoSelect>
 
-      {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado, ["nombre", "ventas_requeridas", "tanda_premio_id"])} />
       <Boton type="submit" disabled={pendiente || tandas.length === 0} className="w-fit">
         {pendiente ? "Creando…" : "+ Nuevo programa"}
       </Boton>

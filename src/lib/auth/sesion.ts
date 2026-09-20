@@ -73,6 +73,9 @@ export type UsuarioSesion = {
   // constantes.ts) — siempre null para cualquier otro rol.
   aliasBancarioTipo: TipoAliasBancario | null;
   aliasBancarioValor: string | null;
+  // Número de WhatsApp del superadmin (mismo criterio, pero este sí se
+  // muestra en el checkout público) — siempre null para cualquier otro rol.
+  numeroWhatsapp: string | null;
 };
 
 const COLUMNAS_PUBLICAS = {
@@ -88,6 +91,7 @@ const COLUMNAS_PUBLICAS = {
   rucFacturacion: usuarios.rucFacturacion,
   aliasBancarioTipo: usuarios.aliasBancarioTipo,
   aliasBancarioValor: usuarios.aliasBancarioValor,
+  numeroWhatsapp: usuarios.numeroWhatsapp,
 } as const;
 
 /** Usuario logueado (sin password_hash), o null. Memoizado por request. */

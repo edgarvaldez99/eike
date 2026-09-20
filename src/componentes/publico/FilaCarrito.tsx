@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { actualizarCantidadCarritoAction, quitarDelCarritoAction } from "@/lib/acciones/carrito";
+import { Icono } from "@/componentes/ui/Icono";
 import { formatoGs } from "@/lib/formato";
 import type { ItemCarrito } from "@/server/carrito";
 
@@ -47,20 +48,22 @@ export function FilaCarrito({ item }: { item: ItemCarrito }) {
               type="button"
               disabled={pendiente}
               onClick={() => cambiarCantidad(item.cantidad - 1)}
-              className="eike-btn eike-btn--ghost eike-btn--sm"
+              className="eike-btn eike-btn--ghost eike-btn--sm eike-btn--icono"
               aria-label="Menos"
             >
-              −
+              <Icono nombre="menos" />
             </button>
-            <span className="w-6 text-center text-[13px]">{item.cantidad}</span>
+            <span className="w-6 text-center text-[13px]" aria-live="polite">
+              {item.cantidad}
+            </span>
             <button
               type="button"
               disabled={pendiente}
               onClick={() => cambiarCantidad(item.cantidad + 1)}
-              className="eike-btn eike-btn--ghost eike-btn--sm"
+              className="eike-btn eike-btn--ghost eike-btn--sm eike-btn--icono"
               aria-label="Más"
             >
-              +
+              <Icono nombre="mas" />
             </button>
           </div>
         )}
@@ -69,7 +72,7 @@ export function FilaCarrito({ item }: { item: ItemCarrito }) {
           type="button"
           disabled={pendiente}
           onClick={quitar}
-          className="text-[13px] text-red hover:underline"
+          className="eike-btn eike-btn--ghost eike-btn--sm text-red"
         >
           Quitar
         </button>

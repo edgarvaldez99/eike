@@ -45,7 +45,7 @@ export default async function PaginaStaff({ params }: { params: Promise<{ id: st
                 <th>Email</th>
                 <th>Eventos asignados</th>
                 <th>Estado</th>
-                <th></th>
+                <th aria-label="Acciones"></th>
               </tr>
             </thead>
             <tbody>

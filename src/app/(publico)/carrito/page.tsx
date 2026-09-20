@@ -4,6 +4,7 @@ import { leerTokenCarrito } from "@/lib/carrito/cookie";
 import { obtenerCarritoUtilizablePorToken, obtenerResumenCarrito } from "@/server/carrito";
 import { usuarioActual } from "@/lib/auth/sesion";
 import { Card } from "@/componentes/ui/Card";
+import { Icono } from "@/componentes/ui/Icono";
 import { formatoGs } from "@/lib/formato";
 import { FilaCarrito } from "@/componentes/publico/FilaCarrito";
 import { ContadorCarrito } from "@/componentes/publico/ContadorCarrito";
@@ -22,7 +23,7 @@ export default async function PaginaCarrito() {
   if (!resumen || resumen.items.length === 0) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center gap-4 py-16 text-center">
-        <span className="text-4xl">🛒</span>
+        <Icono nombre="carrito" className="text-4xl" />
         <h1 className="text-xl font-extrabold">Tu carrito está vacío</h1>
         <p className="text-[13px] text-muted">Elegí un evento y agregá las entradas que quieras comprar.</p>
         <Link href="/eventos" className="eike-btn eike-btn--cyan">

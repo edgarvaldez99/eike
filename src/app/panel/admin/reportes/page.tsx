@@ -3,6 +3,8 @@ import { obtenerEventosGlobal, obtenerRankingOrganizadores } from "@/server/even
 import { listarOrganizadores } from "@/server/usuarios";
 import { obtenerColaPendientes, obtenerHistorialGlobal, obtenerRankingCompradores } from "@/server/tickets";
 import { Card } from "@/componentes/ui/Card";
+import { CampoSelect } from "@/componentes/ui/CampoSelect";
+import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { Pill } from "@/componentes/ui/Pill";
 import { PILL_ESTADO_TICKET } from "@/lib/estilosEstado";
 import { formatoFecha, formatoGs } from "@/lib/formato";
@@ -137,36 +139,56 @@ export default async function PaginaAdminReportes({
 
       <div>
         <h2 className="mb-3 text-[15px] font-extrabold">Historial global de tickets / clientes</h2>
-        <form className="mb-3 flex flex-wrap gap-3" method="get">
-          <select name="organizador_id" defaultValue={filtros.organizador_id ?? ""} className="eike-campo-input w-auto">
+        <form className="mb-3 flex flex-wrap items-end gap-3" method="get">
+          <CampoSelect
+            etiqueta="Organizador"
+            etiquetaOculta
+            name="organizador_id"
+            defaultValue={filtros.organizador_id ?? ""}
+            className="eike-campo-input--densa w-auto"
+          >
             <option value="">Todos los organizadores</option>
             {organizadores.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.nombre}
               </option>
             ))}
-          </select>
-          <select name="evento_id" defaultValue={filtros.evento_id ?? ""} className="eike-campo-input w-auto">
+          </CampoSelect>
+          <CampoSelect
+            etiqueta="Evento"
+            etiquetaOculta
+            name="evento_id"
+            defaultValue={filtros.evento_id ?? ""}
+            className="eike-campo-input--densa w-auto"
+          >
             <option value="">Todos los eventos</option>
             {eventos.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.nombre}
               </option>
             ))}
-          </select>
-          <select name="estado" defaultValue={filtros.estado ?? ""} className="eike-campo-input w-auto">
+          </CampoSelect>
+          <CampoSelect
+            etiqueta="Estado"
+            etiquetaOculta
+            name="estado"
+            defaultValue={filtros.estado ?? ""}
+            className="eike-campo-input--densa w-auto"
+          >
             <option value="">Todos los estados</option>
             {ESTADOS_TICKET.map((e) => (
               <option key={e} value={e}>
                 {ETIQUETA_ESTADO[e]}
               </option>
             ))}
-          </select>
-          <input
+          </CampoSelect>
+          <CampoTexto
+            etiqueta="Buscar por nombre, cédula o email"
+            etiquetaOculta
             name="busqueda"
             defaultValue={filtros.busqueda ?? ""}
             placeholder="Buscar por nombre/cédula/email"
-            className="eike-campo-input w-auto"
+            className="eike-campo-input--densa w-auto"
           />
           <button type="submit" className="eike-btn eike-btn--ghost eike-btn--sm">
             Buscar

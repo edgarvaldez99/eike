@@ -5,6 +5,7 @@ import { db } from "@/db/cliente";
 import { eventos } from "@/db/esquema";
 import { eq } from "drizzle-orm";
 import { EscanerCamara } from "@/componentes/escaner/EscanerCamara";
+import { Icono } from "@/componentes/ui/Icono";
 
 export const metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -26,8 +27,8 @@ export default async function PaginaEscaner({
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
       <div>
-        <Link href="/panel/escaner" className="text-[13px] text-cyan hover:underline">
-          ← Elegir otro evento
+        <Link href="/panel/escaner" className="inline-flex items-center gap-1 text-[13px] text-cyan underline">
+          <Icono nombre="flecha" direccion="izquierda" /> Elegir otro evento
         </Link>
         <h1 className="mt-2 text-xl font-extrabold">{evento.nombre}</h1>
       </div>

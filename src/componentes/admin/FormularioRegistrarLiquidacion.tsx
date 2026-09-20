@@ -4,8 +4,10 @@ import { useActionState, useState } from "react";
 import { crearLiquidacionAction } from "@/lib/acciones/liquidaciones";
 import { Boton } from "@/componentes/ui/Boton";
 import { BotonConConfirmacion } from "@/componentes/ui/BotonConConfirmacion";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoMonto } from "@/componentes/ui/CampoMonto";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
+import { mensajeError } from "@/lib/estado-formulario";
 
 export function FormularioRegistrarLiquidacion({
   organizadorId,
@@ -41,7 +43,7 @@ export function FormularioRegistrarLiquidacion({
         required
       />
       <CampoMonto etiqueta="Comisión / suscripción a cobrar (Gs)" name="monto_comision_o_suscripcion" defaultValue={0} required />
-      {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado)} />
       <div className="flex gap-2">
         <BotonConConfirmacion
           formId={idForm}

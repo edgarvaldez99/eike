@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { cn } from "@/lib/cn";
 
 const formateador = new Intl.NumberFormat("es-PY", { maximumFractionDigits: 0 });
@@ -24,7 +24,9 @@ type PropsCampoMonto = Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChan
  * del navegador, no de este componente.
  */
 export function CampoMonto({ etiqueta, error, id, name, defaultValue, className, ...props }: PropsCampoMonto) {
-  const idCampo = id ?? name;
+  const idGenerado = useId();
+  const idCampo = id ?? idGenerado;
+  const idError = `${idCampo}-error`;
   const inicial = defaultValue !== undefined && defaultValue !== "" ? Number(defaultValue) : NaN;
   const [crudo, setCrudo] = useState<string>(Number.isFinite(inicial) ? String(inicial) : "");
 
@@ -42,6 +44,8 @@ export function CampoMonto({ etiqueta, error, id, name, defaultValue, className,
         inputMode="numeric"
         autoComplete="off"
         value={visible}
+        aria-describedby={error ? idError : undefined}
+        aria-invalid={error ? true : undefined}
         onChange={(e) => {
           // Solo dígitos: pegar "1.000.000" o "1,000,000" también funciona,
           // se descarta cualquier separador que el usuario haya tipeado.
@@ -51,7 +55,11 @@ export function CampoMonto({ etiqueta, error, id, name, defaultValue, className,
         {...props}
       />
       <input type="hidden" name={name} value={crudo} />
-      {error ? <p className="eike-campo-error">{error}</p> : null}
+      {error ? (
+        <p id={idError} className="eike-campo-error">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

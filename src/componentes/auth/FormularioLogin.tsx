@@ -3,7 +3,9 @@
 import { useActionState } from "react";
 import { iniciarSesionAction } from "@/lib/acciones/auth";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
+import { errorCampo, mensajeError } from "@/lib/estado-formulario";
 
 export function FormularioLogin() {
   const [estado, accion, pendiente] = useActionState(iniciarSesionAction, null);
@@ -15,8 +17,9 @@ export function FormularioLogin() {
         type="email"
         name="email"
         autoComplete="email"
+        spellCheck={false}
         required
-        error={estado && !estado.ok ? estado.campos?.email : undefined}
+        error={errorCampo(estado, "email")}
       />
       <CampoTexto
         etiqueta="Contraseña"
@@ -24,11 +27,9 @@ export function FormularioLogin() {
         name="password"
         autoComplete="current-password"
         required
-        error={estado && !estado.ok ? estado.campos?.password : undefined}
+        error={errorCampo(estado, "password")}
       />
-      {estado && !estado.ok && !estado.campos ? (
-        <p className="eike-campo-error">{estado.error}</p>
-      ) : null}
+      <AvisoError mensaje={mensajeError(estado, ["email", "password"])} />
       <Boton type="submit" disabled={pendiente} className="justify-center">
         {pendiente ? "Ingresando…" : "Ingresar"}
       </Boton>

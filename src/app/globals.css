@@ -14,7 +14,11 @@
   --color-border-soft: #212a34;
   --color-text: #f3f4f6;
   --color-muted: #8d99a8;
-  --color-muted-dim: #5f6b7a;
+  /* #5f6b7a original daba 3.1-3.4:1 de contraste sobre bg/surface — bajo el
+     4.5:1 de WCAG AA para texto normal (código de ticket, peso de imagen).
+     #828e9c pasa 4.5:1 sobre bg/surface/surface-2 y sigue un escalón por
+     debajo de --color-muted (6.38:1). */
+  --color-muted-dim: #828e9c;
 
   --color-cyan: #00b4d8;
   --color-cyan-deep: #0096c7;
@@ -23,7 +27,10 @@
   --color-amber-dim: #3a2f10;
   --color-green: #4ade80;
   --color-green-dim: #123321;
-  --color-red: #ef4444;
+  /* red-400 de Tailwind, no red-500: el 500 (#ef4444) da 4.06:1 sobre
+     --color-surface-2 (el fondo real de un botón --ghost, ej. "Quitar" del
+     carrito) — 5.53:1 con este tono, hallado en QA con Lighthouse. */
+  --color-red: #f87171;
   --color-red-dim: #3a1616;
   --color-orange: #f97316;
 
@@ -86,9 +93,15 @@ body {
   color: var(--color-text);
 }
 
-a {
-  color: inherit;
-}
+/* OJO: NO redeclarar `a { color: inherit }` acá — el preflight de Tailwind
+   ya lo hace, correctamente adentro de `@layer base`. Una redeclaración acá
+   arriba, sin capa, le gana a cualquier color de `@layer components` (una
+   capa sin nombre le gana a CUALQUIER capa nombrada, sin importar
+   especificidad) — eso dejaba los <Link>/<a> con `.eike-btn--cyan` mostrando
+   el texto casi blanco heredado del body en vez de #04222b (2.23:1 de
+   contraste real, hallado en QA con Lighthouse), aunque un <button> con la
+   misma clase se viera bien. Ver también `.eike-safe-bottom` (Fase 1) —
+   mismo tipo de bug de capas de cascada. */
 
 button {
   font-family: inherit;
@@ -96,6 +109,7 @@ button {
 
 button:focus-visible,
 a:focus-visible,
+summary:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--color-cyan);
   outline-offset: 2px;
@@ -107,12 +121,31 @@ table {
   width: 100%;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Todo número (montos, contadores, fechas cortas) usa numerales tabulares */
 .num,
 td.num,
 th.num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+}
+
+/* Sin capa a propósito: sin capa siempre gana contra las utilidades de
+   Tailwind (capa "utilities"), sin importar el orden en el archivo — así
+   `p-6` en el footer no puede pisar este padding-bottom. Reserva espacio
+   contra el home indicator / la barra de gestos en iOS. */
+.eike-safe-bottom {
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
 }
 
 @layer components {
@@ -166,6 +199,7 @@ th.num {
   .eike-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 7px;
     cursor: pointer;
     border-radius: var(--radius-eike-sm);
@@ -173,6 +207,9 @@ th.num {
     font-weight: 700;
     padding: 9px 15px;
     border: 1px solid transparent;
+    /* Mata el delay de doble-tap-para-zoom en botones táctiles. */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--color-cyan) 25%, transparent);
   }
   .eike-btn:disabled {
     cursor: not-allowed;
@@ -192,10 +229,34 @@ th.num {
   }
   .eike-btn--ghost:hover:not(:disabled) {
     border-color: var(--color-cyan);
+    /* Antes solo cambiaba el borde — casi imperceptible con poco contraste
+       de pantalla/luz ambiente. El contenido (texto + ícono, vía
+       currentColor) ahora también vira a cyan. */
+    color: var(--color-cyan);
   }
   .eike-btn--sm {
     padding: 7px 12px;
     font-size: 12.5px;
+  }
+
+  /* En mouse/trackpad (pointer: fine) se mantiene la densidad actual — esto
+     solo sube el área táctil en dispositivos táctiles (celular, tablet),
+     sin inflar la UI densa del panel de escritorio. Se usa `pointer: coarse`
+     y no `(hover: none) and (pointer: coarse)` a propósito: un iPad con
+     Magic Keyboard reporta `hover: hover` + `pointer: coarse`, y ese es
+     justo el caso que hay que cubrir. */
+  @media (pointer: coarse) {
+    .eike-btn,
+    .eike-btn--sm {
+      min-height: 44px;
+    }
+    /* Botones de 1 carácter (steppers −/+, cerrar del Modal): min-height
+       solo no alcanza, el ancho también queda corto. No se aplica a todo
+       `.eike-btn--sm` para no inflar los ghost cortos del panel ("Ver",
+       "Editar"). */
+    .eike-btn--icono {
+      min-width: 44px;
+    }
   }
 
   /* ---------- Avatar ---------- */
@@ -228,7 +289,7 @@ th.num {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 16px 24px;
+    padding: 16px max(24px, env(safe-area-inset-right)) 16px max(24px, env(safe-area-inset-left));
     max-width: 1240px;
     margin: 0 auto;
   }
@@ -258,7 +319,15 @@ th.num {
   .eike-user-pill {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
     gap: 10px;
+    /* Con los botones a 44px de alto en táctil (ver .eike-btn arriba), 5
+       controles en fila (Carrito, Mis entradas/Ingresar, Registrarme, Salir)
+       ya no entran en 360px de ancho. En vez de encoger los botones o
+       depender de íconos (Fase 6, todavía sin construir), esta fila
+       simplemente pasa a una segunda línea — la topbar sigue sticky, solo
+       crece en alto. */
   }
   .eike-user-name {
     font-size: 13px;
@@ -302,6 +371,12 @@ th.num {
     border-bottom-color: var(--color-cyan);
   }
 
+  @media (pointer: coarse) {
+    .eike-nav-tab {
+      min-height: 44px;
+    }
+  }
+
   /* ---------- Tabla ---------- */
   .eike-tabla th {
     text-align: left;
@@ -330,7 +405,8 @@ th.num {
 
   /* ---------- Campo de formulario ---------- */
   .eike-campo-label {
-    font-size: 12.5px;
+    /* 12.5px quedaba chico al lado de un input de 16px (ver .eike-campo-input) */
+    font-size: 13px;
     font-weight: 600;
     color: var(--color-muted);
     display: block;
@@ -343,12 +419,23 @@ th.num {
     border-radius: var(--radius-eike-sm);
     color: var(--color-text);
     padding: 9px 12px;
-    font-size: 13.5px;
+    /* 16px por default: por debajo de eso, iOS Safari hace auto-zoom al
+       enfocar el input. Se prefiere esto a fijar maximum-scale=1 en el
+       viewport, que bloquearía el zoom del usuario. */
+    font-size: 16px;
   }
   .eike-campo-input:focus {
     outline: 2px solid var(--color-cyan);
     outline-offset: -1px;
     border-color: var(--color-cyan);
+  }
+  /* Opt-out explícito para selects/inputs de filtro del panel, donde la
+     densidad de escritorio importa (tablas, filtros en fila). Gateado en
+     `pointer: fine` para que un organizador en tablet siga recibiendo 16px. */
+  @media (pointer: fine) {
+    .eike-campo-input--densa {
+      font-size: 13.5px;
+    }
   }
   .eike-campo-error {
     font-size: 12px;
@@ -356,6 +443,9 @@ th.num {
     margin-top: 4px;
   }
 
+  /* <summary> nativo — enfocable con teclado sin tabindex, a diferencia del
+     <span title="..."> anterior, que ni tenía nombre accesible ni se podía
+     abrir sin mouse. */
   .eike-help {
     width: 14px;
     height: 14px;
@@ -366,8 +456,34 @@ th.num {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    cursor: help;
+    cursor: pointer;
     font-weight: 700;
     margin-left: 5px;
+    list-style: none;
+  }
+  .eike-help::-webkit-details-marker {
+    display: none;
+  }
+  .eike-ayuda {
+    display: inline-flex;
+    position: relative;
+  }
+  .eike-ayuda-texto {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    width: max-content;
+    max-width: 220px;
+    padding: 8px 10px;
+    border-radius: var(--radius-eike-sm);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-3);
+    color: var(--color-text);
+    font-size: 12px;
+    font-weight: 400;
+    text-align: left;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   }
 }

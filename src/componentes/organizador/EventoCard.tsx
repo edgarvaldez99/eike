@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/componentes/ui/Card";
+import { Icono } from "@/componentes/ui/Icono";
 import { Pill } from "@/componentes/ui/Pill";
 import { PILL_ESTADO_EVENTO } from "@/lib/estilosEstado";
 import { formatoFecha, formatoGs } from "@/lib/formato";
@@ -20,12 +21,18 @@ export function EventoCard({ evento }: { evento: EventoConMetricas }) {
     <Link href={`/panel/organizador/eventos/${evento.id}`}>
       <Card className="flex h-full flex-col gap-3 transition-colors hover:border-cyan">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="font-bold leading-tight">{evento.nombre}</h3>
+          <h2 className="font-bold leading-tight">{evento.nombre}</h2>
           <Pill variante={PILL_ESTADO_EVENTO[evento.estado]}>{ETIQUETA_ESTADO[evento.estado]}</Pill>
         </div>
         <div className="flex flex-col gap-0.5 text-[13px] text-muted">
-          <span>📅 {formatoFecha(evento.fechaEvento)}</span>
-          {evento.lugar ? <span>📍 {evento.lugar}</span> : null}
+          <span className="flex items-center gap-1.5">
+            <Icono nombre="calendario" /> {formatoFecha(evento.fechaEvento)}
+          </span>
+          {evento.lugar ? (
+            <span className="flex items-center gap-1.5">
+              <Icono nombre="ubicacion" /> {evento.lugar}
+            </span>
+          ) : null}
         </div>
         <div className="mt-auto grid grid-cols-2 gap-3 border-t border-border-soft pt-3">
           <div>

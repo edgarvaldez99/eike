@@ -3,26 +3,27 @@
 import { useActionState, useState } from "react";
 import { crearTandaAction } from "@/lib/acciones/tandas";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoMonto } from "@/componentes/ui/CampoMonto";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { CampoTextarea } from "@/componentes/ui/CampoTextarea";
+import { GrupoOpciones } from "@/componentes/ui/GrupoOpciones";
+import { errorCampo, mensajeError } from "@/lib/estado-formulario";
 
 export function FormularioNuevaTanda({ eventoId }: { eventoId: number }) {
   const [estado, accion, pendiente] = useActionState(crearTandaAction, null);
   const [tipo, setTipo] = useState<"general" | "numerada">("general");
   const [modoAsientos, setModoAsientos] = useState<"grilla" | "lista">("grilla");
-  const errorCampo = (campo: string) => (estado && !estado.ok ? estado.campos?.[campo] : undefined);
 
   return (
     <form action={accion} className="eike-card flex flex-col gap-4 p-4">
       <input type="hidden" name="evento_id" value={eventoId} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <CampoTexto etiqueta="Nombre" name="nombre" required error={errorCampo("nombre")} />
+        <CampoTexto etiqueta="Nombre" name="nombre" required error={errorCampo(estado, "nombre")} />
         <CampoMonto etiqueta="Precio (Gs)" name="precio" required defaultValue={0} />
       </div>
 
-      <div>
-        <label className="eike-campo-label">Tipo</label>
+      <GrupoOpciones etiqueta="Tipo">
         <div className="flex gap-4 text-sm">
           <label className="flex items-center gap-1.5">
             <input
@@ -45,19 +46,18 @@ export function FormularioNuevaTanda({ eventoId }: { eventoId: number }) {
             Numerada (con asientos)
           </label>
         </div>
-      </div>
+      </GrupoOpciones>
 
       {tipo === "general" ? (
         <CampoMonto
           etiqueta="Cantidad total"
           name="cantidad_total"
           required
-          error={errorCampo("cantidad_total")}
+          error={errorCampo(estado, "cantidad_total")}
         />
       ) : (
         <div className="flex flex-col gap-3 rounded-[var(--radius-eike-sm)] border border-border-soft p-3">
-          <div>
-            <label className="eike-campo-label">Cómo cargar el mapa de asientos</label>
+          <GrupoOpciones etiqueta="Cómo cargar el mapa de asientos">
             <div className="flex gap-4 text-sm">
               <label className="flex items-center gap-1.5">
                 <input
@@ -80,16 +80,22 @@ export function FormularioNuevaTanda({ eventoId }: { eventoId: number }) {
                 Lista de nombres
               </label>
             </div>
-          </div>
+          </GrupoOpciones>
           {modoAsientos === "grilla" ? (
             <div className="grid grid-cols-2 gap-4">
-              <CampoTexto etiqueta="Filas" type="number" min={1} name="filas" error={errorCampo("filas")} />
+              <CampoTexto
+                etiqueta="Filas"
+                type="number"
+                min={1}
+                name="filas"
+                error={errorCampo(estado, "filas")}
+              />
               <CampoTexto
                 etiqueta="Asientos por fila"
                 type="number"
                 min={1}
                 name="asientos_por_fila"
-                error={errorCampo("asientos_por_fila")}
+                error={errorCampo(estado, "asientos_por_fila")}
               />
             </div>
           ) : (
@@ -103,7 +109,7 @@ export function FormularioNuevaTanda({ eventoId }: { eventoId: number }) {
         </div>
       )}
 
-      {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado, ["nombre", "cantidad_total", "filas", "asientos_por_fila"])} />
       <Boton type="submit" disabled={pendiente} className="w-fit">
         {pendiente ? "Creando…" : "+ Nueva tanda"}
       </Boton>

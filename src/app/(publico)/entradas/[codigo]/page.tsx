@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { obtenerTicketPorCodigo } from "@/server/tickets";
+import { obtenerNumeroWhatsappPlataforma } from "@/server/cuenta";
 import { generarQrSvg } from "@/lib/qr";
 import { formatoFecha } from "@/lib/formato";
 import { Pill } from "@/componentes/ui/Pill";
 import { PILL_ESTADO_TICKET } from "@/lib/estilosEstado";
 import { BotonImprimir } from "@/componentes/publico/BotonImprimir";
+import { AvisoComprobanteWhatsapp } from "@/componentes/publico/AvisoComprobanteWhatsapp";
 import type { EstadoTicket } from "@/lib/constantes";
 
 // El código en sí es la credencial (ver server/tickets.ts) — nunca debe
@@ -30,6 +32,8 @@ export default async function PaginaTicket({
   if (!ticket) notFound();
 
   const qrSvg = await generarQrSvg(ticket.codigo);
+  const mostrarAvisoWhatsapp = ticket.estado === "pendiente" && ticket.precioPagado > 0;
+  const numeroWhatsapp = mostrarAvisoWhatsapp ? await obtenerNumeroWhatsappPlataforma() : null;
 
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-4 print:max-w-none">
@@ -38,12 +42,14 @@ export default async function PaginaTicket({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={ticket.aficheUrl}
-            alt=""
+            alt={`Afiche de ${ticket.eventoNombre}`}
             className="mx-auto mb-4 max-w-[200px] rounded-[var(--radius-eike-sm)] border border-border"
           />
         ) : null}
 
         <div
+          role="img"
+          aria-label={`Código QR de la entrada ${ticket.codigo}`}
           className="mx-auto w-[220px] [&>svg]:h-full [&>svg]:w-full"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
@@ -82,6 +88,13 @@ export default async function PaginaTicket({
           No compartas ni dupliques este ticket — es de un único acceso.
         </p>
       </div>
+
+      {numeroWhatsapp ? (
+        <div className="print:hidden">
+          <AvisoComprobanteWhatsapp numero={numeroWhatsapp} codigo={ticket.codigo} />
+        </div>
+      ) : null}
+
       <div className="text-center print:hidden">
         <BotonImprimir />
       </div>

@@ -3,8 +3,11 @@
 import { useActionState, useState } from "react";
 import { crearCuponAction } from "@/lib/acciones/cupones";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoMonto } from "@/componentes/ui/CampoMonto";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
+import { GrupoOpciones } from "@/componentes/ui/GrupoOpciones";
+import { errorCampo, mensajeError } from "@/lib/estado-formulario";
 
 /** Cupones de descuento (Fase 7 del plan de mejoras). Deja los avanzados
  * (tope por comprador, monto mínimo de compra) con sus defaults del
@@ -14,7 +17,6 @@ export function FormularioNuevoCupon({ eventoId }: { eventoId: number }) {
   const [estado, accion, pendiente] = useActionState(crearCuponAction, null);
   const [tipo, setTipo] = useState<"porcentaje" | "monto">("porcentaje");
   const [alcance, setAlcance] = useState<"evento" | "todos">("evento");
-  const errorCampo = (campo: string) => (estado && !estado.ok ? estado.campos?.[campo] : undefined);
 
   return (
     <form action={accion} className="eike-card flex flex-col gap-4 p-4">
@@ -23,13 +25,15 @@ export function FormularioNuevoCupon({ eventoId }: { eventoId: number }) {
       <CampoTexto
         etiqueta="Código"
         name="codigo"
+        autoComplete="off"
+        autoCapitalize="characters"
+        spellCheck={false}
         required
         placeholder="VERANO2026"
-        error={errorCampo("codigo")}
+        error={errorCampo(estado, "codigo")}
       />
 
-      <div>
-        <label className="eike-campo-label">Aplica a</label>
+      <GrupoOpciones etiqueta="Aplica a">
         <div className="mt-1 flex gap-4 text-[13px]">
           <label className="flex items-center gap-1.5">
             <input
@@ -44,10 +48,9 @@ export function FormularioNuevoCupon({ eventoId }: { eventoId: number }) {
             Todos mis eventos
           </label>
         </div>
-      </div>
+      </GrupoOpciones>
 
-      <div>
-        <label className="eike-campo-label">Tipo de descuento</label>
+      <GrupoOpciones etiqueta="Tipo de descuento">
         <div className="mt-1 flex gap-4 text-[13px]">
           <label className="flex items-center gap-1.5">
             <input
@@ -70,7 +73,7 @@ export function FormularioNuevoCupon({ eventoId }: { eventoId: number }) {
             Monto fijo (Gs)
           </label>
         </div>
-      </div>
+      </GrupoOpciones>
 
       {tipo === "porcentaje" ? (
         <CampoTexto
@@ -80,16 +83,16 @@ export function FormularioNuevoCupon({ eventoId }: { eventoId: number }) {
           min={1}
           max={100}
           required
-          error={errorCampo("valor")}
+          error={errorCampo(estado, "valor")}
         />
       ) : (
-        <CampoMonto etiqueta="Monto (Gs)" name="valor" required defaultValue={0} error={errorCampo("valor")} />
+        <CampoMonto etiqueta="Monto (Gs)" name="valor" required defaultValue={0} error={errorCampo(estado, "valor")} />
       )}
 
       <CampoTexto etiqueta="Tope de usos (opcional)" name="max_usos" type="number" min={1} />
       <CampoTexto etiqueta="Vence el (opcional)" name="vence_en" type="date" />
 
-      {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado, ["codigo", "valor"])} />
       <Boton type="submit" disabled={pendiente} className="w-fit">
         {pendiente ? "Creando…" : "+ Nuevo cupón"}
       </Boton>

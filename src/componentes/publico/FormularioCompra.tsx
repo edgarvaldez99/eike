@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import { comprarTicketAction } from "@/lib/acciones/tickets-publico";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoImagen } from "@/componentes/ui/CampoImagen";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { CampoCupon, type CuponAplicado } from "@/componentes/publico/CampoCupon";
 import { cn } from "@/lib/cn";
+import { errorCampo, mensajeError } from "@/lib/estado-formulario";
 import type { UsuarioSesion } from "@/lib/auth/sesion";
 import type { AsientoDisponible } from "@/server/tandas";
 import type { TandaPublica } from "@/server/eventos";
@@ -29,7 +31,7 @@ export function FormularioCompra({
   // siempre del total ya con descuento (nunca del precio de lista solo).
   const esGratis = tanda.precio - (cupon?.descuento ?? 0) <= 0;
   const requiereAsiento = tanda.tipo === "numerada" && usuario !== null;
-  const errorCampo = (campo: string) => (estado && !estado.ok ? estado.campos?.[campo] : undefined);
+  const idGrupoAsiento = useId();
 
   return (
     <form action={accion} encType="multipart/form-data" className="flex flex-col gap-4">
@@ -40,15 +42,18 @@ export function FormularioCompra({
 
       {requiereAsiento ? (
         <div>
-          <label className="eike-campo-label">Elegí tu asiento</label>
+          <span id={idGrupoAsiento} className="eike-campo-label">
+            Elegí tu asiento
+          </span>
           {asientosDisponibles.length === 0 ? (
             <p className="text-[13px] text-muted">No quedan asientos disponibles.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div role="group" aria-labelledby={idGrupoAsiento} className="flex flex-wrap gap-2">
               {asientosDisponibles.map((a) => (
                 <button
                   key={a.id}
                   type="button"
+                  aria-pressed={asientoId === a.id}
                   onClick={() => setAsientoId(a.id)}
                   className={cn(
                     "eike-btn eike-btn--sm",
@@ -66,22 +71,35 @@ export function FormularioCompra({
       <CampoTexto
         etiqueta="Nombre completo"
         name="nombre_comprador"
+        autoComplete="name"
         required
         defaultValue={usuario?.nombre ?? ""}
-        error={errorCampo("nombre_comprador")}
+        error={errorCampo(estado, "nombre_comprador")}
       />
-      <CampoTexto etiqueta="Cédula" name="cedula" defaultValue={usuario?.cedula ?? ""} />
+      <CampoTexto
+        etiqueta="Cédula"
+        name="cedula"
+        inputMode="numeric"
+        autoComplete="off"
+        spellCheck={false}
+        defaultValue={usuario?.cedula ?? ""}
+      />
       <CampoTexto
         etiqueta="Email"
         type="email"
         name="email"
+        autoComplete="email"
+        spellCheck={false}
         required
         defaultValue={usuario?.email ?? ""}
-        error={errorCampo("email")}
+        error={errorCampo(estado, "email")}
       />
       <CampoTexto
         etiqueta="Teléfono / WhatsApp"
         name="contacto"
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
         defaultValue={usuario?.telefono ?? ""}
       />
 
@@ -95,7 +113,12 @@ export function FormularioCompra({
         </p>
       ) : (
         <>
-          <CampoTexto etiqueta="Nº de comprobante (opcional)" name="comprobante_texto" />
+          <CampoTexto
+            etiqueta="Nº de comprobante (opcional)"
+            name="comprobante_texto"
+            autoComplete="off"
+            spellCheck={false}
+          />
           <CampoImagen
             etiqueta="Comprobante de pago (imagen o PDF)"
             name="comprobante"
@@ -112,13 +135,9 @@ export function FormularioCompra({
         </label>
       ) : null}
 
-      {estado && !estado.ok && !estado.campos ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado, ["nombre_comprador", "email"])} />
 
-      <Boton
-        type="submit"
-        disabled={pendiente || (requiereAsiento && asientosDisponibles.length > 0 && !asientoId)}
-        className="justify-center"
-      >
+      <Boton type="submit" disabled={pendiente} className="justify-center">
         {pendiente ? "Procesando…" : "Confirmar compra"}
       </Boton>
     </form>

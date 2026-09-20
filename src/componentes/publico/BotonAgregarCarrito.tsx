@@ -1,10 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import Link from "next/link";
 import { agregarAlCarritoAction } from "@/lib/acciones/carrito";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
+import { Icono } from "@/componentes/ui/Icono";
 import { cn } from "@/lib/cn";
+import { mensajeError } from "@/lib/estado-formulario";
 import type { AsientoDisponible } from "@/server/tandas";
 
 /**
@@ -34,11 +37,15 @@ export function BotonAgregarCarrito({
   const [asientoElegido, setAsientoElegido] = useState<number | null>(null);
   const tope = Math.min(20, disponibles);
   const requiereAsiento = tipo === "numerada" && asientosDisponibles !== undefined;
+  const idGrupoAsiento = useId();
 
   if (estado?.ok) {
     return (
-      <span className="text-[13px] text-green">
-        Agregado ✓ · <Link href="/carrito" className="underline">Ver carrito</Link>
+      <span className="flex items-center gap-1 text-[13px] text-green">
+        <Icono nombre="check" /> Agregado ·{" "}
+        <Link href="/carrito" className="underline">
+          Ver carrito
+        </Link>
       </span>
     );
   }
@@ -51,15 +58,22 @@ export function BotonAgregarCarrito({
 
       {requiereAsiento ? (
         <div className="flex flex-col items-end gap-1">
-          <label className="eike-campo-label">Elegí tu asiento</label>
+          <span id={idGrupoAsiento} className="eike-campo-label">
+            Elegí tu asiento
+          </span>
           {asientosDisponibles!.length === 0 ? (
             <p className="text-[13px] text-muted">No quedan asientos disponibles.</p>
           ) : (
-            <div className="flex max-w-xs flex-wrap justify-end gap-2">
+            <div
+              role="group"
+              aria-labelledby={idGrupoAsiento}
+              className="flex max-w-xs flex-wrap justify-end gap-2"
+            >
               {asientosDisponibles!.map((a) => (
                 <button
                   key={a.id}
                   type="button"
+                  aria-pressed={asientoElegido === a.id}
                   onClick={() => setAsientoElegido(a.id)}
                   className={cn(
                     "eike-btn eike-btn--sm",
@@ -80,30 +94,29 @@ export function BotonAgregarCarrito({
             <button
               type="button"
               onClick={() => setCantidad((c) => Math.max(1, c - 1))}
-              className="eike-btn eike-btn--ghost eike-btn--sm"
+              className="eike-btn eike-btn--ghost eike-btn--sm eike-btn--icono"
               aria-label="Menos"
             >
-              −
+              <Icono nombre="menos" />
             </button>
-            <span className="w-6 text-center text-[13px]">{cantidad}</span>
+            <span className="w-6 text-center text-[13px]" aria-live="polite">
+              {cantidad}
+            </span>
             <button
               type="button"
               onClick={() => setCantidad((c) => Math.min(tope, c + 1))}
-              className="eike-btn eike-btn--ghost eike-btn--sm"
+              className="eike-btn eike-btn--ghost eike-btn--sm eike-btn--icono"
               aria-label="Más"
             >
-              +
+              <Icono nombre="mas" />
             </button>
           </div>
         ) : null}
-        <Boton
-          type="submit"
-          disabled={pendiente || (requiereAsiento && asientosDisponibles!.length > 0 && !asientoElegido)}
-        >
+        <Boton type="submit" disabled={pendiente}>
           {pendiente ? "Agregando…" : "Agregar al carrito"}
         </Boton>
       </div>
-      {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado)} />
     </form>
   );
 }

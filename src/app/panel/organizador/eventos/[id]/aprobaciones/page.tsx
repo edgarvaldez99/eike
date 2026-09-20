@@ -3,6 +3,7 @@ import { requerirSesion } from "@/lib/auth/guardas";
 import { obtenerEventoConTandas } from "@/server/eventos";
 import { obtenerPendientes } from "@/server/tickets";
 import { Card } from "@/componentes/ui/Card";
+import { Icono } from "@/componentes/ui/Icono";
 import { formatoFecha, formatoGs, formatoVenceEn } from "@/lib/formato";
 import { BotonesAprobacion } from "@/componentes/organizador/BotonesAprobacion";
 
@@ -68,9 +69,9 @@ export default async function PaginaAprobaciones({
                           href={`/api/comprobantes/${t.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[12.5px] text-cyan hover:underline"
+                          className="inline-flex items-center gap-1 text-[12.5px] text-cyan underline"
                         >
-                          Ver comprobante ↗
+                          Ver comprobante <Icono nombre="flecha" direccion="arriba-derecha" />
                         </a>
                         <BotonesAprobacion ordenId={t.id} />
                       </div>

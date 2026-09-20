@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { obtenerInvitacionVigente } from "@/server/staff";
 import { Card } from "@/componentes/ui/Card";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { FormularioAceptarInvitacion } from "@/componentes/organizador/FormularioAceptarInvitacion";
 
 export const metadata = { title: "Invitación de staff", robots: { index: false, follow: false } };
@@ -38,7 +39,7 @@ export default async function PaginaAceptarInvitacion({
         {invitacion ? (
           <FormularioAceptarInvitacion token={token} />
         ) : (
-          <p className="eike-campo-error text-center">{error}</p>
+          <AvisoError mensaje={error ?? undefined} className="text-center" />
         )}
       </Card>
     </div>

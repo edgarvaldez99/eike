@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { aprobarOrdenAction, rechazarOrdenAction } from "@/lib/acciones/tickets";
 import { Boton } from "@/componentes/ui/Boton";
 import { BotonConConfirmacion } from "@/componentes/ui/BotonConConfirmacion";
+import { AvisoError } from "@/componentes/ui/AvisoError";
+import { mensajeError } from "@/lib/estado-formulario";
 
 export function BotonesAprobacion({ ordenId }: { ordenId: number }) {
   const [estadoAprobar, accionAprobar, pendienteAprobar] = useActionState(aprobarOrdenAction, null);
@@ -34,8 +36,8 @@ export function BotonesAprobacion({ ordenId }: { ordenId: number }) {
           {pendienteRechazar ? "…" : "Rechazar"}
         </BotonConConfirmacion>
       </div>
-      {estadoAprobar && !estadoAprobar.ok ? <p className="eike-campo-error">{estadoAprobar.error}</p> : null}
-      {estadoRechazar && !estadoRechazar.ok ? <p className="eike-campo-error">{estadoRechazar.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estadoAprobar)} />
+      <AvisoError mensaje={mensajeError(estadoRechazar)} />
     </div>
   );
 }

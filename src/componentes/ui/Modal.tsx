@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
+import { Icono } from "@/componentes/ui/Icono";
 
 export function Modal({
   titulo,
@@ -14,6 +15,7 @@ export function Modal({
   children: React.ReactNode;
 }) {
   const refDialog = useRef<HTMLDialogElement>(null);
+  const idTitulo = useId();
 
   useEffect(() => {
     const dialog = refDialog.current;
@@ -27,17 +29,20 @@ export function Modal({
       ref={refDialog}
       onClose={onCerrar}
       onCancel={onCerrar}
-      className="w-full max-w-md rounded-[var(--radius-eike)] border border-border bg-surface p-0 text-text backdrop:bg-black/60"
+      aria-labelledby={idTitulo}
+      className="w-full max-w-md overscroll-contain rounded-[var(--radius-eike)] border border-border bg-surface p-0 text-text backdrop:bg-black/60"
     >
       <div className="flex items-center justify-between border-b border-border-soft p-4">
-        <h2 className="font-bold">{titulo}</h2>
+        <h2 id={idTitulo} className="font-bold">
+          {titulo}
+        </h2>
         <button
           type="button"
           onClick={onCerrar}
           aria-label="Cerrar"
-          className="text-muted hover:text-text"
+          className="eike-btn eike-btn--ghost eike-btn--sm eike-btn--icono"
         >
-          ✕
+          <Icono nombre="cerrar" />
         </button>
       </div>
       <div className="p-4">{children}</div>

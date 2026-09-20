@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -11,14 +12,47 @@ for (const linea of readFileSync(path.resolve(__dirname, ".env.test"), "utf8").s
 
 export default defineConfig({
   test: {
-    globalSetup: "./src/test/setup-global.ts",
-    setupFiles: ["./src/test/setup.ts"],
-    // Los tests de src/server comparten una sola base de test (eike_test) y
-    // truncan las tablas antes de cada test — correr archivos en paralelo
-    // pisaría datos entre sí. El costo de serializar es aceptable: el
-    // proyecto es chico y la prioridad es que los tests sean confiables.
-    fileParallelism: false,
-    include: ["src/**/*.test.ts"],
+    // OJO: `include`/`globalSetup`/`setupFiles`/`fileParallelism` NO viven acá
+    // a propósito. Con `extends: true`, Vitest fusiona arrays de la raíz con
+    // los del proyecto (concatena, no reemplaza) — si `include` estuviera acá,
+    // el proyecto "componentes" terminaría corriendo TAMBIÉN los `*.test.ts`
+    // de servidor (y su `globalSetup` con Postgres) aunque declare su propio
+    // `include`. Por eso cada proyecto define esos cuatro campos de cero;
+    // solo lo que sí conviene compartir (alias, coverage) queda acá arriba.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "servidor",
+          globalSetup: "./src/test/setup-global.ts",
+          setupFiles: ["./src/test/setup.ts"],
+          // Los tests de src/server comparten una sola base de test
+          // (eike_test) y truncan las tablas antes de cada test — correr
+          // archivos en paralelo pisaría datos entre sí. El costo de
+          // serializar es aceptable: el proyecto es chico y la prioridad es
+          // que los tests sean confiables.
+          fileParallelism: false,
+          include: ["src/**/*.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        plugins: [react()],
+        test: {
+          name: "componentes",
+          environment: "jsdom",
+          setupFiles: ["./src/test/setup-componentes.ts"],
+          include: ["src/**/*.test.tsx"],
+        },
+      },
+    ],
+    // `passWithNoTests` es una "non-project option" (tipo ProjectConfig no
+    // la acepta) — vive acá, a nivel raíz. Todavía no hay ningún
+    // *.test.tsx (llegan en la Fase 3, junto con
+    // AvisoError/CampoSelect/GrupoOpciones); sin esto, que el proyecto
+    // "componentes" no matchee nada hace fallar la corrida entera, incluido
+    // el proyecto "servidor".
+    passWithNoTests: true,
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],

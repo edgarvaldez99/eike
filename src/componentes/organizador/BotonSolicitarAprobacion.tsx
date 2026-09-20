@@ -3,7 +3,9 @@
 import { useActionState, useState } from "react";
 import { solicitarAprobacionEventoAction } from "@/lib/acciones/eventos";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { Modal } from "@/componentes/ui/Modal";
+import { mensajeError } from "@/lib/estado-formulario";
 
 /**
  * Solicitar aprobación de un evento (pedido anti-estafa) — reemplaza al
@@ -39,7 +41,7 @@ export function BotonSolicitarAprobacion({
             Si lo aprueba, queda publicado y disponible para la venta. Si lo rechaza, vas a ver el motivo acá
             mismo y el evento vuelve a ser editable para que lo corrijas y solicites de nuevo.
           </p>
-          {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
+          <AvisoError mensaje={mensajeError(estado)} />
           <form action={accion} className="flex justify-end gap-2">
             <input type="hidden" name="id" value={eventoId} />
             <Boton type="button" variante="ghost" onClick={() => setAbierto(false)}>

@@ -4,7 +4,9 @@ import { useActionState, useState } from "react";
 import { editarOrganizadorAction, inactivarOrganizadorAction, reactivarOrganizadorAction } from "@/lib/acciones/admin-usuarios";
 import { Boton } from "@/componentes/ui/Boton";
 import { BotonConConfirmacion } from "@/componentes/ui/BotonConConfirmacion";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
+import { mensajeError } from "@/lib/estado-formulario";
 import type { EstadoUsuario } from "@/lib/constantes";
 
 interface Organizador {
@@ -28,7 +30,7 @@ export function FormularioEditarOrganizador({ organizador }: { organizador: Orga
         <CampoTexto etiqueta="Nombre" name="nombre" defaultValue={organizador.nombre} required />
         <CampoTexto etiqueta="Teléfono" name="telefono" defaultValue={organizador.telefono ?? ""} />
         <CampoTexto etiqueta="RUC" name="ruc_facturacion" defaultValue={organizador.rucFacturacion ?? ""} />
-        {estadoEditar && !estadoEditar.ok ? <p className="eike-campo-error">{estadoEditar.error}</p> : null}
+        <AvisoError mensaje={mensajeError(estadoEditar)} />
         <div className="flex gap-2">
           <Boton type="submit" tamano="sm" disabled={pendienteEditar}>
             {pendienteEditar ? "Guardando…" : "Guardar"}

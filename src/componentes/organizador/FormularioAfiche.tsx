@@ -4,7 +4,9 @@ import { useActionState } from "react";
 import Image from "next/image";
 import { subirAficheAction } from "@/lib/acciones/upload";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoImagen } from "@/componentes/ui/CampoImagen";
+import { mensajeError } from "@/lib/estado-formulario";
 
 export function FormularioAfiche({
   eventoId,
@@ -44,7 +46,7 @@ export function FormularioAfiche({
       <input type="hidden" name="evento_id" value={eventoId} />
       {imagen}
       <CampoImagen etiqueta="Nueva imagen" name="afiche" required />
-      {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
+      <AvisoError mensaje={mensajeError(estado)} />
       <Boton type="submit" variante="ghost" tamano="sm" disabled={pendiente} className="w-fit">
         {pendiente ? "Subiendo…" : "Subir afiche"}
       </Boton>

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { usuarios } from "@/db/esquema";
 import { ErrorNegocio } from "@/lib/errores";
@@ -63,4 +63,33 @@ export async function editarAliasBancario(usuarioId: number, datos: DatosAliasBa
     .update(usuarios)
     .set({ aliasBancarioTipo: datos.tipo, aliasBancarioValor: datos.valor })
     .where(eq(usuarios.id, usuarioId));
+}
+
+/**
+ * Número de WhatsApp del superadmin — dato de LA PLATAFORMA, no de cada
+ * organizador (mismo criterio que el alias bancario de arriba). A
+ * diferencia de ese alias, este SÍ es público: se muestra en el checkout
+ * (ver obtenerNumeroWhatsappPlataforma) para que el comprador mande ahí su
+ * comprobante tras una compra normal o por carrito. La action layer ya
+ * restringe el rol a superadmin.
+ */
+export async function editarNumeroWhatsappPlataforma(usuarioId: number, numero: string): Promise<void> {
+  await db.update(usuarios).set({ numeroWhatsapp: numero }).where(eq(usuarios.id, usuarioId));
+}
+
+/**
+ * Número de WhatsApp de la plataforma para mostrar en el checkout público
+ * (/entradas/[codigo] y /entradas/orden/[codigo]). Si hay más de un
+ * superadmin, toma el primero que lo tenga cargado (en la práctica hoy hay
+ * uno solo) — null si ninguno lo cargó todavía, en cuyo caso el checkout
+ * simplemente no muestra el aviso.
+ */
+export async function obtenerNumeroWhatsappPlataforma(): Promise<string | null> {
+  const [fila] = await db
+    .select({ numeroWhatsapp: usuarios.numeroWhatsapp })
+    .from(usuarios)
+    .where(and(eq(usuarios.rol, "superadmin"), isNotNull(usuarios.numeroWhatsapp)))
+    .orderBy(usuarios.id)
+    .limit(1);
+  return fila?.numeroWhatsapp ?? null;
 }

@@ -3,7 +3,9 @@
 import { useActionState, useState } from "react";
 import { invitarStaffAction } from "@/lib/acciones/staff";
 import { Boton } from "@/componentes/ui/Boton";
+import { AvisoError } from "@/componentes/ui/AvisoError";
 import { Modal } from "@/componentes/ui/Modal";
+import { mensajeError } from "@/lib/estado-formulario";
 
 export function FormularioInvitarStaff({
   eventoId,
@@ -34,7 +36,7 @@ export function FormularioInvitarStaff({
               Se genera un link de invitación de un solo uso, válido por 72 horas. La persona lo usa para
               crear su propia cuenta de staff, con acceso solo al escáner de este evento.
             </p>
-            {estado && !estado.ok ? <p className="eike-campo-error">{estado.error}</p> : null}
+            <AvisoError mensaje={mensajeError(estado)} />
             <Boton type="submit" disabled={pendiente} className="justify-center">
               {pendiente ? "Generando…" : "Generar link"}
             </Boton>

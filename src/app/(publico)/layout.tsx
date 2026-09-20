@@ -5,6 +5,8 @@ import { leerTokenCarrito } from "@/lib/carrito/cookie";
 import { contarUnidadesCarrito, obtenerCarritoUtilizablePorToken } from "@/server/carrito";
 import { Avatar } from "@/componentes/ui/Avatar";
 import { Boton } from "@/componentes/ui/Boton";
+import { Icono } from "@/componentes/ui/Icono";
+import { SkipLink } from "@/componentes/ui/SkipLink";
 
 export default async function LayoutPublico({ children }: { children: React.ReactNode }) {
   const usuario = await usuarioActual();
@@ -18,6 +20,7 @@ export default async function LayoutPublico({ children }: { children: React.Reac
 
   return (
     <div className="flex min-h-screen flex-col">
+      <SkipLink destino="#contenido-principal" />
       <header className="eike-topbar">
         <div className="eike-topbar-row">
           <Link href="/" className="eike-brand">
@@ -26,7 +29,8 @@ export default async function LayoutPublico({ children }: { children: React.Reac
           </Link>
           <div className="eike-user-pill">
             <Link href="/carrito" className="eike-btn eike-btn--ghost eike-btn--sm">
-              🛒 Carrito{unidadesCarrito > 0 ? ` (${unidadesCarrito})` : ""}
+              <Icono nombre="carrito" />
+              Carrito{unidadesCarrito > 0 ? ` (${unidadesCarrito})` : ""}
             </Link>
             {usuario ? (
               <>
@@ -56,10 +60,12 @@ export default async function LayoutPublico({ children }: { children: React.Reac
           </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[1240px] flex-1 p-6">{children}</main>
-      <footer className="border-t border-border-soft p-6 text-center text-[12.5px] text-muted-dim">
+      <main id="contenido-principal" className="mx-auto w-full max-w-[1240px] flex-1 p-6">
+        {children}
+      </main>
+      <footer className="eike-safe-bottom border-t border-border-soft p-6 text-center text-[12.5px] text-muted-dim">
         ¿Sos organizador?{" "}
-        <Link href="/ingresar" className="text-cyan hover:underline">
+        <Link href="/ingresar" className="text-cyan underline">
           Entrá acá
         </Link>
       </footer>

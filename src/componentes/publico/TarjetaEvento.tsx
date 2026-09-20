@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icono } from "@/componentes/ui/Icono";
 import { Pill } from "@/componentes/ui/Pill";
 import { armarSlugEvento } from "@/lib/slug";
 import { formatoFecha } from "@/lib/formato";
@@ -12,12 +13,19 @@ export function TarjetaEvento({ evento }: { evento: EventoPublico }) {
     >
       {evento.aficheUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- afiches ya optimizados a JPEG en la subida (sharp), servidos same-origin
-        <img src={evento.aficheUrl} alt="" loading="lazy" className="aspect-[3/4] w-full object-cover" />
+        <img
+          src={evento.aficheUrl}
+          alt={evento.nombre}
+          loading="lazy"
+          className="aspect-[3/4] w-full object-cover"
+        />
       ) : (
-        <div className="flex aspect-[3/4] w-full items-center justify-center bg-surface-2 text-4xl">🎟️</div>
+        <div className="flex aspect-[3/4] w-full items-center justify-center bg-surface-2 text-4xl text-muted-dim">
+          <Icono nombre="ticket" />
+        </div>
       )}
       <div className="flex flex-1 flex-col gap-1.5 p-4">
-        <h3 className="font-bold leading-tight">{evento.nombre}</h3>
+        <h3 className="line-clamp-2 font-bold leading-tight">{evento.nombre}</h3>
         <div className="text-[13px] text-muted">{formatoFecha(evento.fechaEvento)}</div>
         {evento.lugar ? <div className="text-[13px] text-muted">{evento.lugar}</div> : null}
         {evento.esGratuito ? (

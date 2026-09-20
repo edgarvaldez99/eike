@@ -3,6 +3,7 @@ import { db } from "@/db/cliente";
 import { asientos, cuponUsos, eventos, ordenes, tandas, tickets } from "@/db/esquema";
 import { ErrorNegocio } from "@/lib/errores";
 import type { UsuarioSesion } from "@/lib/auth/sesion";
+import type { EstadoOrden } from "@/lib/constantes";
 import { generarCodigoOrden, generarCodigoTicket } from "@/lib/qr";
 import { escribirComprobante, type ComprobantePreparado } from "@/lib/archivos/comprobante";
 import { consumirCupon } from "@/server/cupones";
@@ -841,6 +842,8 @@ export interface TicketDeOrden {
 
 export interface OrdenParaMostrar {
   codigo: string;
+  estado: EstadoOrden;
+  total: number;
   eventoNombre: string;
   fechaEvento: Date;
   lugar: string | null;
@@ -880,6 +883,8 @@ export async function obtenerOrdenParaMostrar(codigo: string): Promise<OrdenPara
 
   return {
     codigo: orden.codigo,
+    estado: orden.estado,
+    total: orden.total,
     eventoNombre: rows[0].evento_nombre,
     fechaEvento: new Date(rows[0].fecha_evento),
     lugar: rows[0].lugar,
