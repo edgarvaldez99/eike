@@ -194,6 +194,7 @@ export const eventos = pgTable(
     descripcion: text("descripcion"),
     fechaEvento: timestamp("fecha_evento", { withTimezone: true }).notNull(),
     lugar: varchar("lugar", { length: 200 }),
+    direccion: varchar("direccion", { length: 255 }),
     aficheUrl: varchar("afiche_url", { length: 255 }),
     aforoTotal: integer("aforo_total"),
     esGratuito: boolean("es_gratuito").notNull().default(false),

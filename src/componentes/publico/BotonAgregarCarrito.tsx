@@ -8,6 +8,7 @@ import { AvisoError } from "@/componentes/ui/AvisoError";
 import { Icono } from "@/componentes/ui/Icono";
 import { cn } from "@/lib/cn";
 import { mensajeError } from "@/lib/estado-formulario";
+import { acentoOpuesto, type AcentoEvento } from "@/lib/acentoEvento";
 import type { AsientoDisponible } from "@/server/tandas";
 
 /**
@@ -26,11 +27,13 @@ export function BotonAgregarCarrito({
   tipo,
   disponibles,
   asientosDisponibles,
+  acento,
 }: {
   tandaId: number;
   tipo: "general" | "numerada";
   disponibles: number;
   asientosDisponibles?: AsientoDisponible[];
+  acento: AcentoEvento;
 }) {
   const [estado, accion, pendiente] = useActionState(agregarAlCarritoAction, null);
   const [cantidad, setCantidad] = useState(1);
@@ -77,7 +80,7 @@ export function BotonAgregarCarrito({
                   onClick={() => setAsientoElegido(a.id)}
                   className={cn(
                     "eike-btn eike-btn--sm",
-                    asientoElegido === a.id ? "eike-btn--cyan" : "eike-btn--ghost",
+                    asientoElegido === a.id ? "eike-btn--amarillo" : "eike-btn--ghost",
                   )}
                 >
                   {a.identificador}
@@ -112,7 +115,7 @@ export function BotonAgregarCarrito({
             </button>
           </div>
         ) : null}
-        <Boton type="submit" disabled={pendiente}>
+        <Boton type="submit" variante={acentoOpuesto(acento)} disabled={pendiente}>
           {pendiente ? "Agregando…" : "Agregar al carrito"}
         </Boton>
       </div>

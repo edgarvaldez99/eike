@@ -6,6 +6,7 @@ export const esquemaCrearEvento = z.object({
   descripcion: zTextoOpcional(),
   fecha_evento: z.string().trim().min(1, "Falta la fecha."),
   lugar: zTextoOpcional(),
+  direccion: zTextoOpcional(),
   aforo_total: zNumeroOpcional((s) => s.int().min(0)),
   es_gratuito: zCasilla(),
 });
@@ -16,6 +17,7 @@ export const esquemaEditarEvento = z.object({
   descripcion: zTextoOpcional(),
   fecha_evento: z.string().trim().min(1, "Falta la fecha."),
   lugar: zTextoOpcional(),
+  direccion: zTextoOpcional(),
   aforo_total: zNumeroOpcional((s) => s.int().min(0)),
 });
 

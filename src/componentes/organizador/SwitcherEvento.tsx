@@ -17,9 +17,9 @@ export interface EventoParaSwitcher {
 const PILL_LIVE: Record<string, { texto: string; clase: string }> = {
   publicado: { texto: "En venta", clase: "text-green" },
   borrador: { texto: "Borrador", clase: "text-muted" },
-  pendiente_aprobacion: { texto: "Pendiente", clase: "text-amber" },
+  pendiente_aprobacion: { texto: "Pendiente", clase: "text-amarillo-texto" },
   rechazado: { texto: "Rechazado", clase: "text-red" },
-  reprogramado: { texto: "Reprogramado", clase: "text-amber" },
+  reprogramado: { texto: "Reprogramado", clase: "text-amarillo-texto" },
   finalizado: { texto: "Finalizado", clase: "text-muted" },
   cancelado: { texto: "Cancelado", clase: "text-red" },
 };
@@ -39,7 +39,7 @@ export function SwitcherEvento({
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}
-        className="flex max-w-[280px] items-center gap-2 rounded-full border border-border bg-surface-2 px-3.5 py-1.5 text-[13px] font-semibold hover:border-cyan"
+        className="flex max-w-[280px] items-center gap-2 rounded-full border border-border bg-surface-2 px-3.5 py-1.5 text-[13px] font-semibold hover:border-lila-bright"
       >
         <span
           aria-hidden="true"
@@ -62,7 +62,7 @@ export function SwitcherEvento({
                 router.push(`/panel/organizador/eventos/${evento.id}`);
               }}
               className={`flex w-full items-center justify-between gap-2.5 rounded-[var(--radius-eike-sm)] px-2.5 py-2 text-left hover:bg-surface-2 ${
-                evento.id === actual.id ? "bg-cyan-dim" : ""
+                evento.id === actual.id ? "bg-lila-dim" : ""
               }`}
             >
               <div>
@@ -77,7 +77,7 @@ export function SwitcherEvento({
           <div className="my-1.5 h-px bg-border" />
           <Link
             href="/panel/organizador"
-            className="block w-full rounded-[var(--radius-eike-sm)] px-2.5 py-2 text-left text-[12.5px] font-bold uppercase tracking-wide text-cyan hover:bg-surface-2"
+            className="block w-full rounded-[var(--radius-eike-sm)] px-2.5 py-2 text-left text-[12.5px] font-bold uppercase tracking-wide text-lila-bright hover:bg-surface-2"
             onClick={() => setAbierto(false)}
           >
             Ver todos mis eventos

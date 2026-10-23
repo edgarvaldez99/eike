@@ -118,23 +118,28 @@ export function CampoImagen({
           className="max-h-[220px] w-auto rounded-[var(--radius-eike-sm)] border border-border object-contain"
         />
       ) : null}
-      <input
-        ref={inputRef}
-        id={idCampo}
-        type="file"
-        name={name}
-        required={required}
-        accept={
-          permitirPdf
-            ? "image/png,image/jpeg,image/webp,application/pdf"
-            : "image/png,image/jpeg,image/webp"
-        }
-        onChange={manejarCambio}
-        className={cn("text-[12.5px]", className)}
-        aria-describedby={error ? idError : undefined}
-        aria-invalid={error ? true : undefined}
-        {...props}
-      />
+      <div className="eike-campo-archivo">
+        <input
+          ref={inputRef}
+          id={idCampo}
+          type="file"
+          name={name}
+          required={required}
+          accept={
+            permitirPdf
+              ? "image/png,image/jpeg,image/webp,application/pdf"
+              : "image/png,image/jpeg,image/webp"
+          }
+          onChange={manejarCambio}
+          className={cn("w-full text-[12.5px]", className)}
+          aria-describedby={error ? idError : undefined}
+          aria-invalid={error ? true : undefined}
+          {...props}
+        />
+        <p className="mt-1 text-[12px] text-muted-dim">
+          {permitirPdf ? "PNG, JPG o PDF · hasta 10MB" : "PNG, JPG o WEBP · hasta 10MB"}
+        </p>
+      </div>
       {procesando ? <p className="text-[12px] text-muted-dim">Optimizando imagen…</p> : null}
       {!procesando && pesoInfo ? <p className="text-[12px] text-muted-dim">{pesoInfo}</p> : null}
       {error ? (

@@ -44,7 +44,7 @@ export function FormularioInvitarStaff({
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-[13px] text-muted">Compartí este link con la persona (WhatsApp, email, etc.):</p>
-            <code className="eike-campo-input block break-all font-mono text-[12px] text-cyan">{link}</code>
+            <code className="eike-campo-input block break-all font-mono text-[12px] text-lila-bright">{link}</code>
             <Boton
               variante="ghost"
               tamano="sm"

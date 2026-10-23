@@ -3,8 +3,8 @@ import { Card } from "@/componentes/ui/Card";
 interface Segmento {
   etiqueta: string;
   valor: number;
-  color: string; // clase tailwind de background, ej. "bg-cyan"
-  colorTexto: string; // clase tailwind de texto, ej. "text-cyan"
+  color: string; // clase tailwind de background, ej. "bg-lila"
+  colorTexto: string; // clase tailwind de texto, ej. "text-lila-bright"
 }
 
 export function BarraOcupacion({
@@ -25,8 +25,8 @@ export function BarraOcupacion({
   const total = Math.max(1, capacidadTotal); // evita división por 0 si no hay tandas
 
   const segmentos: Segmento[] = [
-    { etiqueta: "Disponibles", valor: disponibles, color: "bg-cyan", colorTexto: "text-cyan" },
-    { etiqueta: "Pendientes de pago", valor: pendientes, color: "bg-amber", colorTexto: "text-amber" },
+    { etiqueta: "Disponibles", valor: disponibles, color: "bg-lila", colorTexto: "text-lila-bright" },
+    { etiqueta: "Pendientes de pago", valor: pendientes, color: "bg-amarillo", colorTexto: "text-amarillo-texto" },
     { etiqueta: "Cortesías", valor: cortesias, color: "bg-green", colorTexto: "text-green" },
     { etiqueta: "Validados en puerta", valor: usados, color: "bg-orange", colorTexto: "text-orange" },
     { etiqueta: "Sobrantes / sin vender", valor: sobrantes, color: "bg-border", colorTexto: "text-muted" },

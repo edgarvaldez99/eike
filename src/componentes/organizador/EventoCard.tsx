@@ -19,7 +19,7 @@ const ETIQUETA_ESTADO: Record<string, string> = {
 export function EventoCard({ evento }: { evento: EventoConMetricas }) {
   return (
     <Link href={`/panel/organizador/eventos/${evento.id}`}>
-      <Card className="flex h-full flex-col gap-3 transition-colors hover:border-cyan">
+      <Card className="flex h-full flex-col gap-3 transition-colors hover:border-lila-bright">
         <div className="flex items-start justify-between gap-2">
           <h2 className="font-bold leading-tight">{evento.nombre}</h2>
           <Pill variante={PILL_ESTADO_EVENTO[evento.estado]}>{ETIQUETA_ESTADO[evento.estado]}</Pill>

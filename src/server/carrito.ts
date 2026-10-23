@@ -383,6 +383,7 @@ export interface ItemCarrito {
   asientoIdentificador: string | null;
   eventoId: number;
   eventoNombre: string;
+  aficheUrl: string | null;
   subtotal: number;
 }
 
@@ -421,6 +422,7 @@ export async function obtenerResumenCarrito(carritoId: number): Promise<ResumenC
       asientoIdentificador: asientos.identificador,
       eventoId: eventos.id,
       eventoNombre: eventos.nombre,
+      aficheUrl: eventos.aficheUrl,
     })
     .from(carritoItems)
     .innerJoin(tandas, eq(tandas.id, carritoItems.tandaId))

@@ -104,6 +104,7 @@ export interface EventoPublico {
   descripcion: string | null;
   fechaEvento: Date;
   lugar: string | null;
+  direccion: string | null;
   aficheUrl: string | null;
   esGratuito: boolean;
   organizadorNombre: string;
@@ -117,11 +118,12 @@ export async function obtenerEventosPublicos(): Promise<EventoPublico[]> {
     descripcion: string | null;
     fecha_evento: string;
     lugar: string | null;
+    direccion: string | null;
     afiche_url: string | null;
     es_gratuito: boolean;
     organizador_nombre: string;
   }>(sql`
-    SELECT e.id, e.nombre, e.descripcion, e.fecha_evento, e.lugar, e.afiche_url, e.es_gratuito,
+    SELECT e.id, e.nombre, e.descripcion, e.fecha_evento, e.lugar, e.direccion, e.afiche_url, e.es_gratuito,
            u.nombre AS organizador_nombre
       FROM eventos e
       JOIN usuarios u ON u.id = e.organizador_id
@@ -134,6 +136,7 @@ export async function obtenerEventosPublicos(): Promise<EventoPublico[]> {
     descripcion: f.descripcion,
     fechaEvento: new Date(f.fecha_evento),
     lugar: f.lugar,
+    direccion: f.direccion,
     aficheUrl: f.afiche_url,
     esGratuito: f.es_gratuito,
     organizadorNombre: f.organizador_nombre,
@@ -191,6 +194,7 @@ export async function obtenerEventoPublicoPorId(id: number): Promise<EventoPubli
     descripcion: evento.descripcion,
     fechaEvento: evento.fechaEvento,
     lugar: evento.lugar,
+    direccion: evento.direccion,
     aficheUrl: evento.aficheUrl,
     esGratuito: evento.esGratuito,
     organizadorNombre: organizador?.nombre ?? "—",
@@ -203,6 +207,7 @@ export interface DatosCrearEvento {
   descripcion: string | null;
   fechaEvento: Date;
   lugar: string | null;
+  direccion: string | null;
   aforoTotal: number | null;
   esGratuito: boolean;
 }
@@ -216,6 +221,7 @@ export async function crearEvento(usuario: UsuarioSesion, datos: DatosCrearEvent
       descripcion: datos.descripcion,
       fechaEvento: datos.fechaEvento,
       lugar: datos.lugar,
+      direccion: datos.direccion,
       aforoTotal: datos.aforoTotal,
       esGratuito: datos.esGratuito,
       // aprobacionGratuito queda por compatibilidad de esquema, pero está
@@ -235,6 +241,7 @@ export interface DatosEditarEvento {
   descripcion: string | null;
   fechaEvento: Date;
   lugar: string | null;
+  direccion: string | null;
   aforoTotal: number | null;
 }
 
@@ -258,6 +265,7 @@ export async function editarEvento(
       descripcion: datos.descripcion,
       fechaEvento: datos.fechaEvento,
       lugar: datos.lugar,
+      direccion: datos.direccion,
       aforoTotal: datos.aforoTotal,
     })
     .where(eq(eventos.id, evento.id));

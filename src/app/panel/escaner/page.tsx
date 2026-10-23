@@ -25,7 +25,7 @@ export default async function PaginaSeleccionEscaner() {
         <div className="flex flex-col gap-3">
           {eventos.map((e) => (
             <Link key={e.id} href={`/panel/escaner/${e.id}`}>
-              <Card className="transition-colors hover:border-cyan">
+              <Card className="transition-colors hover:border-lila-bright">
                 <div className="font-bold">{e.nombre}</div>
                 <div className="text-[13px] text-muted">
                   {formatoFecha(e.fechaEvento)}

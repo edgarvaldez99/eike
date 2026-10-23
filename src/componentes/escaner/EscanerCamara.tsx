@@ -18,14 +18,14 @@ interface RespuestaValidacion {
 
 const ESTILO_RESULTADO: Record<RespuestaValidacion["resultado"], { clase: string; titulo: string; vibracion: number[] }> = {
   ok: { clase: "border-green bg-green-dim", titulo: "✅ Acceso permitido", vibracion: [60] },
-  ya_usado: { clase: "border-amber bg-amber-dim", titulo: "⚠️ Ya fue usado", vibracion: [60, 80, 60] },
+  ya_usado: { clase: "border-amarillo bg-amarillo-dim", titulo: "⚠️ Ya fue usado", vibracion: [60, 80, 60] },
   anulado: { clase: "border-red bg-red-dim", titulo: "⛔ Anulado", vibracion: [60, 80, 60] },
-  pendiente: { clase: "border-amber bg-amber-dim", titulo: "⏳ Pago pendiente", vibracion: [60, 80, 60] },
+  pendiente: { clase: "border-amarillo bg-amarillo-dim", titulo: "⏳ Pago pendiente", vibracion: [60, 80, 60] },
   invalido: { clase: "border-red bg-red-dim", titulo: "❌ Inválido", vibracion: [60, 80, 60] },
   // Distinto de "invalido": acá el ticket puede ser perfectamente válido, solo
   // no se pudo consultar — no informarle a la puerta que el ticket está mal
   // cuando el problema real es la conexión.
-  error_red: { clase: "border-amber bg-amber-dim", titulo: "📡 Sin conexión", vibracion: [60, 80, 60] },
+  error_red: { clase: "border-amarillo bg-amarillo-dim", titulo: "📡 Sin conexión", vibracion: [60, 80, 60] },
 };
 
 // Cada cuánto se vuelve a intentar decodificar el frame de video. Sin este

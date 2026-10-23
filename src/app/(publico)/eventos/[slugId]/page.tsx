@@ -3,8 +3,10 @@ import type { Metadata } from "next";
 import { obtenerEventoPublicoPorId } from "@/server/eventos";
 import { obtenerAsientosDisponibles, type AsientoDisponible } from "@/server/tandas";
 import { usuarioActual } from "@/lib/auth/sesion";
+import { acentoEvento } from "@/lib/acentoEvento";
 import { armarSlugEvento, idDesdeSlug } from "@/lib/slug";
-import { formatoFecha, formatoGs } from "@/lib/formato";
+import { formatoFechaPill, formatoGs } from "@/lib/formato";
+import { cn } from "@/lib/cn";
 import { Card } from "@/componentes/ui/Card";
 import { Boton } from "@/componentes/ui/Boton";
 import { Icono } from "@/componentes/ui/Icono";
@@ -107,6 +109,9 @@ export default async function PaginaEvento({
     })),
   };
 
+  const acento = acentoEvento(evento.id);
+  const claseAcentoBorde = acento === "amarillo" ? "border-amarillo" : "border-lila";
+
   return (
     <div className="flex flex-col gap-6">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
@@ -118,26 +123,43 @@ export default async function PaginaEvento({
             src={evento.aficheUrl}
             alt={evento.nombre}
             loading="lazy"
-            className="aspect-[3/4] w-full rounded-[var(--radius-eike)] border border-border object-cover"
+            className={cn("eike-ticket aspect-[3/4] w-full border-2 object-cover", claseAcentoBorde)}
           />
         ) : (
-          <div className="flex aspect-[3/4] w-full items-center justify-center rounded-[var(--radius-eike)] border border-border bg-surface-2 text-5xl text-muted-dim">
+          <div
+            className={cn(
+              "eike-ticket flex aspect-[3/4] w-full items-center justify-center border-2 bg-surface-2 text-5xl text-muted-dim",
+              claseAcentoBorde,
+            )}
+          >
             <Icono nombre="ticket" />
           </div>
         )}
 
         <div>
           <h1 className="text-2xl font-extrabold sm:text-3xl">{evento.nombre}</h1>
-          <div className="mt-2 flex flex-col gap-1 text-[14px] text-muted">
+          <div className="mt-2 flex flex-col gap-1.5 text-[14px]">
             <span className="flex items-center gap-1.5">
-              <Icono nombre="calendario" /> {formatoFecha(evento.fechaEvento)}
+              <Icono nombre="calendario" className="text-muted" />
+              <span className="font-semibold">Fecha:</span>{" "}
+              <span className="font-mono text-[13px] tracking-wide text-muted">
+                {formatoFechaPill(evento.fechaEvento, { conDiaSemana: true })}
+              </span>
             </span>
             {evento.lugar ? (
               <span className="flex items-center gap-1.5">
-                <Icono nombre="ubicacion" /> {evento.lugar}
+                <Icono nombre="ubicacion" className="text-muted" />
+                <span className="font-semibold">Lugar:</span>{" "}
+                <span className="font-mono text-[13px] tracking-wide text-muted">{evento.lugar}</span>
               </span>
             ) : null}
-            <span>Organiza: {evento.organizadorNombre}</span>
+            {evento.direccion ? (
+              <span className="flex items-center gap-1.5">
+                <span className="font-semibold">Dirección:</span>{" "}
+                <span className="font-mono text-[13px] tracking-wide text-muted">{evento.direccion}</span>
+              </span>
+            ) : null}
+            <span className="text-muted">Organiza: {evento.organizadorNombre}</span>
           </div>
           {evento.descripcion ? <p className="mt-4 text-[14px] text-muted">{evento.descripcion}</p> : null}
           <div className="mt-4">
@@ -149,7 +171,7 @@ export default async function PaginaEvento({
         </div>
       </div>
 
-      <Card className="p-0">
+      <Card className={cn("border-2 p-0", claseAcentoBorde)}>
         <div className="p-4 pb-0 text-[15px] font-extrabold">Entradas</div>
         <div className="flex flex-col divide-y divide-border-soft">
           {evento.tandas.length === 0 ? (
@@ -160,8 +182,10 @@ export default async function PaginaEvento({
                 <div>
                   <div className="font-semibold">{tanda.nombre}</div>
                   <div className="text-[13px] text-muted">
-                    {tanda.precio === 0 ? "Gratis" : formatoGs(tanda.precio)} ·{" "}
-                    {tanda.disponibles > 0 ? `${tanda.disponibles} disponibles` : "Agotado"}
+                    <span className="text-amarillo-texto font-semibold">
+                      {tanda.precio === 0 ? "Gratis" : formatoGs(tanda.precio)}
+                    </span>{" "}
+                    · {tanda.disponibles > 0 ? `${tanda.disponibles} disponibles` : "Agotado"}
                   </div>
                 </div>
                 {tanda.disponibles > 0 ? (
@@ -169,6 +193,7 @@ export default async function PaginaEvento({
                     tandaId={tanda.id}
                     tipo={tanda.tipo}
                     disponibles={tanda.disponibles}
+                    acento={acento}
                     asientosDisponibles={
                       tanda.tipo === "numerada" && compradorSesion ? (asientosPorTanda.get(tanda.id) ?? []) : undefined
                     }

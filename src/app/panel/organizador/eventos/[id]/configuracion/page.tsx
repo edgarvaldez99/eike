@@ -46,7 +46,7 @@ export default async function PaginaConfiguracionEvento({
   return (
     <div className="flex flex-col gap-6">
       {!puedeEditar ? (
-        <div className="eike-card border-amber/40 bg-amber-dim p-4 text-[13.5px]">
+        <div className="eike-card border-amarillo/40 bg-amarillo-dim p-4 text-[13.5px]">
           Este evento es de solo lectura
           {evento.estado === "pendiente_aprobacion" ? " mientras el superadmin lo revisa." : "."}
         </div>

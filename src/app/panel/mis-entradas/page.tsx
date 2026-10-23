@@ -66,7 +66,7 @@ export default async function PaginaMisEntradas({
       {tickets.length === 0 ? (
         <div className="eike-card border-dashed p-8 text-center text-muted">
           Todavía no compraste ningún ticket.{" "}
-          <Link href="/eventos" className="text-cyan underline">
+          <Link href="/eventos" className="text-lila-bright underline">
             Ver eventos
           </Link>
         </div>
@@ -150,7 +150,7 @@ export default async function PaginaMisEntradas({
                   historial.map((t) => (
                     <tr key={t.id}>
                       <td className="num">
-                        <Link href={`/entradas/${t.codigo}`} className="text-cyan hover:underline">
+                        <Link href={`/entradas/${t.codigo}`} className="text-lila-bright hover:underline">
                           {t.codigo}
                         </Link>
                       </td>

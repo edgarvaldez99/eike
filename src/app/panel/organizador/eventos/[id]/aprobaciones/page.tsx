@@ -60,7 +60,7 @@ export default async function PaginaAprobaciones({
                     <td className="num">
                       {formatoFecha(t.fechaCompra)}
                       {formatoVenceEn(t.reservadoHasta) ? (
-                        <div className="text-[11.5px] text-amber">{formatoVenceEn(t.reservadoHasta)}</div>
+                        <div className="text-[11.5px] text-amarillo-texto">{formatoVenceEn(t.reservadoHasta)}</div>
                       ) : null}
                     </td>
                     <td>
@@ -69,7 +69,7 @@ export default async function PaginaAprobaciones({
                           href={`/api/comprobantes/${t.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[12.5px] text-cyan underline"
+                          className="inline-flex items-center gap-1 text-[12.5px] text-lila-bright underline"
                         >
                           Ver comprobante <Icono nombre="flecha" direccion="arriba-derecha" />
                         </a>

@@ -23,7 +23,7 @@ export function BotonConConfirmacion({
   mensaje,
   tituloModal = "Confirmar",
   etiquetaConfirmar = "Confirmar",
-  variante = "cyan",
+  variante = "amarillo",
   tamano,
   disabled,
   children,
@@ -32,7 +32,7 @@ export function BotonConConfirmacion({
   mensaje: string;
   tituloModal?: string;
   etiquetaConfirmar?: string;
-  variante?: "cyan" | "ghost";
+  variante?: "amarillo" | "ghost";
   tamano?: "normal" | "sm";
   disabled?: boolean;
   children: React.ReactNode;

@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
 /*
- * Tokens de diseño — copiados 1:1 del artifact aprobado
- * (Eike — Panel Organizador, rediseño). Tema único, oscuro.
- * No agregar variante clara: el producto es solo-oscuro por decisión de diseño.
+ * Tokens de diseño — paleta de marca Eike (manual_eike.pdf): lila + amarillo
+ * + negro/blanco, tipografía Bricolage Grotesque / Inter. Soporta oscuro
+ * (default) y claro, automático por prefers-color-scheme + override manual
+ * persistido vía [data-theme] en <html> (ver useTema/SwitcherTema).
  */
 :root {
   --color-bg: #10141a;
@@ -20,11 +21,25 @@
      debajo de --color-muted (6.38:1). */
   --color-muted-dim: #828e9c;
 
-  --color-cyan: #00b4d8;
-  --color-cyan-deep: #0096c7;
-  --color-cyan-dim: #0d3a47;
-  --color-amber: #ffb703;
-  --color-amber-dim: #3a2f10;
+  /* Amarillo — acción principal, títulos, precios (manual de marca). Como
+     TEXTO PLANO da solo 1.70:1 sobre blanco, por eso el fondo de botón y el
+     color de texto son tokens separados a propósito. */
+  --color-amarillo: #f5be4c;
+  --color-amarillo-deep: #d9a438; /* hover/pressed del botón primario */
+  --color-amarillo-dim: #3a3019; /* fondo tenue de pill (7.65:1 con el texto) */
+  --color-amarillo-texto: #f5be4c; /* texto plano (Metrica acento, etc.) */
+  --color-on-amarillo: #0b0e17; /* texto fijo sobre fondo amarillo, 11.34:1 */
+
+  /* Lila — acento secundario/interactivo: links, foco, tab activo, pill
+     info, ghost hover (manual de marca). #532880 (base) da solo 1.74:1
+     sobre --color-bg como texto — por eso el foreground usa -bright (tinte
+     claro), y el base queda reservado para FONDOS (botón secundario,
+     superficies), donde el manual pide texto blanco encima. */
+  --color-lila: #532880;
+  --color-lila-bright: #a78bfa; /* 6.79:1 sobre --color-bg */
+  --color-lila-dim: #241a35;
+  --color-on-lila: #ffffff;
+
   --color-green: #4ade80;
   --color-green-dim: #123321;
   /* red-400 de Tailwind, no red-500: el 500 (#ef4444) da 4.06:1 sobre
@@ -34,7 +49,74 @@
   --color-red-dim: #3a1616;
   --color-orange: #f97316;
 
+  /* El logo del footer es un PNG blanco (recortado de docs/GuiaDeEstilos) —
+     en claro se invierte a negro vía filter en vez de cargar un segundo
+     archivo, mismo patrón de "un valor por tema" que el resto de los
+     tokens de este bloque. */
+  --filtro-logo-marca: none;
+
   color-scheme: dark;
+}
+
+/* ---- Claro automático (el sistema pide claro Y nadie forzó oscuro) ---- */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --color-bg: #f7f8fa;
+    --color-surface: #ffffff;
+    --color-surface-2: #f0f1f4;
+    --color-surface-3: #e7e9ee;
+    --color-border: #d8dbe2;
+    --color-border-soft: #e3e5ea;
+    --color-text: #15181f;
+    --color-muted: #495162;
+    --color-muted-dim: #6b7280;
+
+    --color-amarillo-deep: #c6912c;
+    --color-amarillo-dim: #fbeecb;
+    --color-amarillo-texto: #8a6116;
+
+    /* Lila base YA pasa 10.59:1 sobre blanco — en claro -bright es el
+       mismo valor que el base, no hace falta tinte. */
+    --color-lila-bright: #532880;
+    --color-lila-dim: #f1e9fb;
+
+    --color-green: #15803d;
+    --color-green-dim: #dcfce7;
+    --color-red: #b91c1c;
+    --color-red-dim: #fee2e2;
+    --color-orange: #c2560c;
+    --filtro-logo-marca: invert(1);
+
+    color-scheme: light;
+  }
+}
+
+/* ---- Claro forzado a mano (gana aunque el sistema pida oscuro) ---- */
+:root[data-theme="light"] {
+  --color-bg: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f1f4;
+  --color-surface-3: #e7e9ee;
+  --color-border: #d8dbe2;
+  --color-border-soft: #e3e5ea;
+  --color-text: #15181f;
+  --color-muted: #495162;
+  --color-muted-dim: #6b7280;
+
+  --color-amarillo-deep: #c6912c;
+  --color-amarillo-dim: #fbeecb;
+  --color-amarillo-texto: #8a6116;
+  --color-lila-bright: #532880;
+  --color-lila-dim: #f1e9fb;
+
+  --color-green: #15803d;
+  --color-green-dim: #dcfce7;
+  --color-red: #b91c1c;
+  --color-red-dim: #fee2e2;
+  --color-orange: #c2560c;
+  --filtro-logo-marca: invert(1);
+
+  color-scheme: light;
 }
 
 @theme inline {
@@ -48,24 +130,38 @@
   --color-muted: var(--color-muted);
   --color-muted-dim: var(--color-muted-dim);
 
-  --color-cyan: var(--color-cyan);
-  --color-cyan-deep: var(--color-cyan-deep);
-  --color-cyan-dim: var(--color-cyan-dim);
-  --color-amber: var(--color-amber);
-  --color-amber-dim: var(--color-amber-dim);
+  --color-amarillo: var(--color-amarillo);
+  --color-amarillo-deep: var(--color-amarillo-deep);
+  --color-amarillo-dim: var(--color-amarillo-dim);
+  --color-amarillo-texto: var(--color-amarillo-texto);
+  --color-on-amarillo: var(--color-on-amarillo);
+
+  --color-lila: var(--color-lila);
+  --color-lila-bright: var(--color-lila-bright);
+  --color-lila-dim: var(--color-lila-dim);
+  --color-on-lila: var(--color-on-lila);
+
   --color-green: var(--color-green);
   --color-green-dim: var(--color-green-dim);
   --color-red: var(--color-red);
   --color-red-dim: var(--color-red-dim);
   --color-orange: var(--color-orange);
 
-  --radius-eike: 10px;
-  --radius-eike-sm: 6px;
+  /* Radios grandes (manual de marca / eike-webKV.pdf): botones casi pill,
+     cards e inputs bien redondeados — ver también el border-radius: 999px
+     fijo de .eike-btn más abajo, que ya no usa este token. */
+  --radius-eike: 20px;
+  --radius-eike-sm: 14px;
 
   /* Escala 4/8/12/16/20/24/32/48 (doc del artifact) sale de una unidad base de 4px */
   --spacing: 4px;
 
-  --font-sans: -apple-system, "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif;
+  /* var(--font-inter)/var(--font-bricolage) los define next/font/google en
+     layout.tsx — el fallback inline cubre el momento en que esas variables
+     todavía no existen (antes de aplicar esa fase) sin invalidar toda la
+     declaración. */
+  --font-sans: var(--font-inter, -apple-system, "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif);
+  --font-titulos: var(--font-bricolage, var(--font-sans));
   --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
@@ -77,6 +173,7 @@
 
 html {
   color-scheme: dark;
+  overflow-x: hidden;
 }
 
 body {
@@ -86,10 +183,15 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* Red de seguridad para .eike-full-bleed: calc(50% - 50vw) puede
+     desbordar unos px cuando `vw` incluye el gutter de la scrollbar
+     vertical (no pasa en todos los navegadores/viewports) — nunca debe
+     aparecer un scroll horizontal por eso. */
+  overflow-x: hidden;
 }
 
 ::selection {
-  background: var(--color-cyan-dim);
+  background: var(--color-lila-dim);
   color: var(--color-text);
 }
 
@@ -97,9 +199,9 @@ body {
    ya lo hace, correctamente adentro de `@layer base`. Una redeclaración acá
    arriba, sin capa, le gana a cualquier color de `@layer components` (una
    capa sin nombre le gana a CUALQUIER capa nombrada, sin importar
-   especificidad) — eso dejaba los <Link>/<a> con `.eike-btn--cyan` mostrando
-   el texto casi blanco heredado del body en vez de #04222b (2.23:1 de
-   contraste real, hallado en QA con Lighthouse), aunque un <button> con la
+   especificidad) — eso dejaba los <Link>/<a> con `.eike-btn--amarillo`
+   mostrando el texto casi blanco heredado del body en vez de --color-on-amarillo
+   (2.23:1 de contraste real, hallado en QA con Lighthouse), aunque un <button> con la
    misma clase se viera bien. Ver también `.eike-safe-bottom` (Fase 1) —
    mismo tipo de bug de capas de cascada. */
 
@@ -107,11 +209,20 @@ button {
   font-family: inherit;
 }
 
+/* Baseline consciente, no una recreación pixel-perfect del checkbox custom
+   del mockup (caja redondeada con check propio) — eso exigiría un
+   componente Checkbox nuevo tocando cada formulario que hoy usa
+   <input type="checkbox"> crudo, costo desproporcionado para un control
+   secundario. */
+input[type="checkbox"] {
+  accent-color: var(--color-lila-bright);
+}
+
 button:focus-visible,
 a:focus-visible,
 summary:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid var(--color-cyan);
+  outline: 2px solid var(--color-lila-bright);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -119,6 +230,13 @@ summary:focus-visible,
 table {
   border-collapse: collapse;
   width: 100%;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-titulos);
+  font-weight: 700;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -149,11 +267,35 @@ th.num {
 }
 
 @layer components {
+  /* Rompe el max-width centrado de <main> para que un fondo decorativo
+     (hero, banner) llegue de punta a punta de la ventana — eike-webKV.pdf
+     muestra ambos fondos a ancho completo, con el contenido de texto
+     adentro manteniendo su propio margen. */
+  .eike-full-bleed {
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+  }
+
+  /* Resplandor de fondo compartido por todas las páginas públicas —
+     eike-webKV.pdf lo repite igual en home, detalle y checkout: arranca
+     pegado al borde inferior del header (sin hueco) y se funde hacia el
+     centro. Altura fija + margin-bottom negativo de la misma medida: no
+     ocupa espacio de verdad, <main> arranca en el mismo punto y su
+     contenido se pinta encima (orden normal del DOM, sin z-index). */
+  .eike-glow-fondo {
+    height: 480px;
+    margin-bottom: -480px;
+    background:
+      radial-gradient(ellipse 650px 480px at 0% 0%, rgba(107, 47, 42, 0.55), transparent 70%),
+      radial-gradient(ellipse 650px 480px at 100% 0%, rgba(110, 90, 40, 0.4), transparent 70%);
+    pointer-events: none;
+  }
+
   .eike-eyebrow {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.09em;
-    color: var(--color-muted);
+    color: var(--color-amarillo-texto);
     font-weight: 600;
   }
 
@@ -161,6 +303,18 @@ th.num {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-eike);
+  }
+
+  /* Tarjeta con muesca de "ticket" (manual de marca): mask con
+     radial-gradient en vez de clip-path: path(...) a propósito — la
+     posición "50% 0" es un porcentaje y se recentra solo si el ancho de la
+     tarjeta cambia por breakpoint, mientras que clip-path: path() fija
+     coordenadas absolutas y no se adapta. El tamaño de la muesca sí queda
+     en px fijos a propósito: es un detalle decorativo de tamaño constante. */
+  .eike-ticket {
+    --muesca: 26px;
+    border-radius: var(--radius-eike);
+    mask: radial-gradient(circle var(--muesca) at 50% 0, #0000 99%, #000 101%);
   }
 
   .eike-pill {
@@ -179,16 +333,16 @@ th.num {
     color: var(--color-green);
   }
   .eike-pill--warn {
-    background: var(--color-amber-dim);
-    color: var(--color-amber);
+    background: var(--color-amarillo-dim);
+    color: var(--color-amarillo-texto);
   }
   .eike-pill--err {
     background: var(--color-red-dim);
     color: var(--color-red);
   }
   .eike-pill--info {
-    background: var(--color-cyan-dim);
-    color: var(--color-cyan);
+    background: var(--color-lila-dim);
+    color: var(--color-lila-bright);
   }
   .eike-pill--neutral {
     background: var(--color-surface-3);
@@ -202,25 +356,37 @@ th.num {
     justify-content: center;
     gap: 7px;
     cursor: pointer;
-    border-radius: var(--radius-eike-sm);
+    /* Pill fijo (no usa --radius-eike-sm): es más redondo que cualquier
+       otro elemento chico del sistema, ver eike-webKV.pdf. */
+    border-radius: 999px;
     font-size: 13px;
     font-weight: 700;
     padding: 9px 15px;
     border: 1px solid transparent;
     /* Mata el delay de doble-tap-para-zoom en botones táctiles. */
     touch-action: manipulation;
-    -webkit-tap-highlight-color: color-mix(in srgb, var(--color-cyan) 25%, transparent);
+    -webkit-tap-highlight-color: color-mix(in srgb, var(--color-lila-bright) 25%, transparent);
   }
   .eike-btn:disabled {
     cursor: not-allowed;
     opacity: 0.6;
   }
-  .eike-btn--cyan {
-    background: var(--color-cyan);
-    color: #04222b;
+  .eike-btn--amarillo {
+    background: var(--color-amarillo);
+    color: var(--color-on-amarillo);
   }
-  .eike-btn--cyan:hover:not(:disabled) {
-    background: var(--color-cyan-deep);
+  .eike-btn--amarillo:hover:not(:disabled) {
+    background: var(--color-amarillo-deep);
+  }
+  /* Botón secundario (manual de marca: "el lila da ... los botones
+     secundarios", siempre con texto blanco encima) — hoy solo lo usa
+     "Registrarme" en la topbar pública. */
+  .eike-btn--lila {
+    background: var(--color-lila);
+    color: var(--color-on-lila);
+  }
+  .eike-btn--lila:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-lila) 85%, black);
   }
   .eike-btn--ghost {
     background: var(--color-surface-2);
@@ -228,11 +394,11 @@ th.num {
     color: var(--color-text);
   }
   .eike-btn--ghost:hover:not(:disabled) {
-    border-color: var(--color-cyan);
+    border-color: var(--color-lila-bright);
     /* Antes solo cambiaba el borde — casi imperceptible con poco contraste
        de pantalla/luz ambiente. El contenido (texto + ícono, vía
-       currentColor) ahora también vira a cyan. */
-    color: var(--color-cyan);
+       currentColor) ahora también vira a lila. */
+    color: var(--color-lila-bright);
   }
   .eike-btn--sm {
     padding: 7px 12px;
@@ -271,7 +437,7 @@ th.num {
     justify-content: center;
     font-size: 12px;
     font-weight: 700;
-    color: var(--color-cyan);
+    color: var(--color-lila-bright);
     flex: none;
   }
 
@@ -280,7 +446,9 @@ th.num {
     position: sticky;
     top: 0;
     z-index: 30;
-    background: rgba(16, 20, 26, 0.92);
+    /* Antes rgba(16, 20, 26, 0.92) fijo — quedaba oscuro aunque el tema
+       pasara a claro, porque no dependía de --color-bg. */
+    background: color-mix(in srgb, var(--color-bg) 92%, transparent);
     backdrop-filter: blur(8px);
     border-bottom: 1px solid var(--color-border-soft);
   }
@@ -298,23 +466,47 @@ th.num {
     align-items: center;
     gap: 10px;
   }
+  /* Campo de píxeles del logo (manual de marca: "para favicon o avatar se
+     usa solo el campo de píxeles junto al ticket") — ver src/app/icon.png,
+     recortado de docs/GuiaDeEstilos/logo eike/logos_PNG_RGB. */
   .eike-brand-mark {
     width: 30px;
     height: 30px;
-    border-radius: 8px;
-    background: linear-gradient(155deg, var(--color-cyan) 0%, var(--color-cyan-deep) 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #04222b;
-    font-weight: 800;
-    font-size: 15px;
     flex: none;
   }
-  .eike-brand-word {
-    font-weight: 800;
-    font-size: 16px;
-    letter-spacing: 0.01em;
+  /* Lockup completo (ícono + "eike e-ticket") del topbar — eike-webKV.pdf
+     usa esta misma pieza ahí, no el ícono + texto suelto. Altura chica en
+     mobile a propósito (prioridad: que no rompa el responsive), tamaño real
+     del mockup desde `sm`. */
+  .eike-logo-marca--topbar {
+    width: auto;
+    height: 40px;
+  }
+  @media (min-width: 640px) {
+    .eike-logo-marca--topbar {
+      height: 60px;
+    }
+  }
+
+  /* ---------- Footer rico (público) ---------- */
+  .eike-logo-marca {
+    filter: var(--filtro-logo-marca);
+  }
+  .eike-footer-social {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    flex: none;
+  }
+  .eike-footer-social:hover {
+    border-color: var(--color-lila-bright);
+    color: var(--color-lila-bright);
   }
   .eike-user-pill {
     display: flex;
@@ -367,8 +559,8 @@ th.num {
     color: var(--color-text);
   }
   .eike-nav-tab--activa {
-    color: var(--color-cyan);
-    border-bottom-color: var(--color-cyan);
+    color: var(--color-lila-bright);
+    border-bottom-color: var(--color-lila-bright);
   }
 
   @media (pointer: coarse) {
@@ -415,7 +607,8 @@ th.num {
   .eike-campo-input {
     width: 100%;
     background: var(--color-surface-2);
-    border: 1px solid var(--color-border);
+    /* Borde lila permanente (no solo en :focus) — eike-webKV.pdf. */
+    border: 1.5px solid var(--color-lila-bright);
     border-radius: var(--radius-eike-sm);
     color: var(--color-text);
     padding: 9px 12px;
@@ -425,9 +618,9 @@ th.num {
     font-size: 16px;
   }
   .eike-campo-input:focus {
-    outline: 2px solid var(--color-cyan);
+    outline: 2px solid var(--color-lila-bright);
     outline-offset: -1px;
-    border-color: var(--color-cyan);
+    border-color: var(--color-lila-bright);
   }
   /* Opt-out explícito para selects/inputs de filtro del panel, donde la
      densidad de escritorio importa (tablas, filtros en fila). Gateado en
@@ -441,6 +634,15 @@ th.num {
     font-size: 12px;
     color: var(--color-red);
     margin-top: 4px;
+  }
+  /* Caja punteada para el input de archivo (comprobante de pago) —
+     eike-webKV.pdf muestra un dropzone, no el botón nativo del navegador
+     suelto. */
+  .eike-campo-archivo {
+    border: 1.5px dashed var(--color-lila-bright);
+    border-radius: var(--radius-eike-sm);
+    padding: 14px 12px;
+    text-align: center;
   }
 
   /* <summary> nativo — enfocable con teclado sin tabindex, a diferencia del

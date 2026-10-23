@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { actualizarCantidadCarritoAction, quitarDelCarritoAction } from "@/lib/acciones/carrito";
 import { Icono } from "@/componentes/ui/Icono";
 import { formatoGs } from "@/lib/formato";
+import { acentoEvento } from "@/lib/acentoEvento";
+import { cn } from "@/lib/cn";
 import type { ItemCarrito } from "@/server/carrito";
 
 export function FilaCarrito({ item }: { item: ItemCarrito }) {
@@ -13,6 +15,7 @@ export function FilaCarrito({ item }: { item: ItemCarrito }) {
   // Un asiento pineado es SIEMPRE una unidad fija (ver server/carrito.ts) —
   // no tiene stepper de cantidad, solo "Quitar".
   const esAsientoFijo = item.asientoId !== null;
+  const acento = acentoEvento(item.eventoId);
 
   function cambiarCantidad(nueva: number) {
     startTransition(async () => {
@@ -29,14 +32,29 @@ export function FilaCarrito({ item }: { item: ItemCarrito }) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 p-4">
-      <div>
-        <div className="font-semibold">
-          {item.tandaNombre}
-          {item.asientoIdentificador ? ` · Asiento ${item.asientoIdentificador}` : ""}
-        </div>
-        <div className="text-[13px] text-muted">
-          {item.eventoNombre} · {item.precio === 0 ? "Gratis" : formatoGs(item.precio)} c/u
+    <div
+      className={cn(
+        "eike-card flex items-center justify-between gap-4 border-2 p-3",
+        acento === "amarillo" ? "border-amarillo" : "border-lila",
+      )}
+    >
+      <div className="flex items-center gap-3">
+        {item.aficheUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.aficheUrl} alt="" className="h-14 w-14 flex-none rounded-[var(--radius-eike-sm)] object-cover" />
+        ) : (
+          <div className="flex h-14 w-14 flex-none items-center justify-center rounded-[var(--radius-eike-sm)] bg-surface-2 text-xl text-muted-dim">
+            <Icono nombre="ticket" />
+          </div>
+        )}
+        <div>
+          <div className="font-semibold">
+            {item.tandaNombre}
+            {item.asientoIdentificador ? ` · Asiento ${item.asientoIdentificador}` : ""}
+          </div>
+          <div className="text-[13px] text-muted">
+            {item.eventoNombre} · {item.precio === 0 ? "Gratis" : formatoGs(item.precio)} c/u
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-3">

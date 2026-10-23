@@ -15,6 +15,8 @@
     "db:studio": "drizzle-kit studio",
     "seed": "tsx --env-file=.env scripts/seed.ts",
     "seed:superadmin": "tsx --env-file=.env scripts/seed-superadmin.ts",
+    "seed:eventos-mockup": "tsx --env-file=.env scripts/seed-eventos-mockup.ts",
+    "archivar:eventos-prueba": "tsx --env-file=.env scripts/archivar-eventos-prueba-viejos.ts",
     "migrar": "tsx --env-file=.env scripts/migrar-mariadb.ts",
     "barrer": "tsx --env-file=.env scripts/barrer.ts",
     "test": "vitest run",

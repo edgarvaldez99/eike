@@ -1,15 +1,21 @@
 import Link from "next/link";
 import { Icono } from "@/componentes/ui/Icono";
 import { Pill } from "@/componentes/ui/Pill";
+import { acentoEvento } from "@/lib/acentoEvento";
 import { armarSlugEvento } from "@/lib/slug";
-import { formatoFecha } from "@/lib/formato";
+import { formatoFechaPill } from "@/lib/formato";
+import { cn } from "@/lib/cn";
 import type { EventoPublico } from "@/server/eventos";
 
 export function TarjetaEvento({ evento }: { evento: EventoPublico }) {
+  const acento = acentoEvento(evento.id);
   return (
     <Link
       href={`/eventos/${armarSlugEvento(evento.id, evento.nombre)}`}
-      className="eike-card flex h-full flex-col overflow-hidden transition-colors hover:border-cyan"
+      className={cn(
+        "eike-card eike-ticket flex h-full flex-col overflow-hidden border-2",
+        acento === "amarillo" ? "border-amarillo" : "border-lila",
+      )}
     >
       {evento.aficheUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- afiches ya optimizados a JPEG en la subida (sharp), servidos same-origin
@@ -26,7 +32,14 @@ export function TarjetaEvento({ evento }: { evento: EventoPublico }) {
       )}
       <div className="flex flex-1 flex-col gap-1.5 p-4">
         <h3 className="line-clamp-2 font-bold leading-tight">{evento.nombre}</h3>
-        <div className="text-[13px] text-muted">{formatoFecha(evento.fechaEvento)}</div>
+        <div
+          className={cn(
+            "w-fit rounded-[var(--radius-eike-sm)] border px-2 py-0.5 font-mono text-[12px] tracking-wide",
+            acento === "amarillo" ? "border-amarillo text-amarillo-texto" : "border-lila-bright text-lila-bright",
+          )}
+        >
+          {formatoFechaPill(evento.fechaEvento)}
+        </div>
         {evento.lugar ? <div className="text-[13px] text-muted">{evento.lugar}</div> : null}
         {evento.esGratuito ? (
           <Pill variante="ok" className="mt-1 w-fit">

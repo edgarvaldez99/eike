@@ -14,7 +14,7 @@ export function Metrica({
   return (
     <div className="eike-card flex flex-col gap-1.5 p-4">
       <span className="eike-eyebrow flex items-center gap-1.5">{etiqueta}</span>
-      <span className={cn("num text-2xl font-extrabold tracking-tight", acento && "text-cyan")}>
+      <span className={cn("num text-2xl font-extrabold tracking-tight", acento && "text-amarillo-texto")}>
         {valor}
       </span>
       {sub ? <span className="text-[11.5px] text-muted-dim">{sub}</span> : null}

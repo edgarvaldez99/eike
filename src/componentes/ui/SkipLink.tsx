@@ -7,7 +7,7 @@ export function SkipLink({ destino }: { destino: string }) {
   return (
     <a
       href={destino}
-      className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-[var(--radius-eike-sm)] focus:bg-cyan focus:px-4 focus:py-2 focus:text-[#04222b] focus:font-bold"
+      className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-[var(--radius-eike-sm)] focus:bg-amarillo focus:px-4 focus:py-2 focus:text-[var(--color-on-amarillo)] focus:font-bold"
     >
       Saltar al contenido
     </a>

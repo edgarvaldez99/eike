@@ -1,11 +1,28 @@
 import type { Metadata, Viewport } from "next";
+import { Bricolage_Grotesque, Inter } from "next/font/google";
 import "./globals.css";
 
-// Producto solo-oscuro por decisión de diseño (ver globals.css) — la barra
-// de estado del navegador/PWA coincide con el fondo en vez de quedar blanca.
+// Tipografía de marca (manual_eike.pdf): títulos en Bricolage Grotesque
+// Bold, texto corrido en Inter. next/font/google las self-hostea en build
+// (sin requests a Google en runtime) y expone --font-inter/--font-bricolage,
+// que globals.css usa en --font-sans/--font-titulos.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["700"],
+  variable: "--font-bricolage",
+  display: "swap",
+});
+
+// Soporta ambos temas (ver globals.css + useTema/SwitcherTema). themeColor
+// por @media refleja la preferencia del SISTEMA; cuando el usuario fuerza un
+// tema a mano, useTema sincroniza el <meta name="theme-color"> en runtime.
 export const viewport: Viewport = {
-  themeColor: "#10141a",
-  colorScheme: "dark",
+  colorScheme: "dark light",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f8fa" },
+    { media: "(prefers-color-scheme: dark)", color: "#10141a" },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -30,10 +47,23 @@ const jsonLdSitio = {
   url: "https://eike.com.py",
 };
 
+// Setea data-theme en <html> ANTES del primer paint — sin esto, forzar un
+// tema a mano (useTema) haría flashear el tema del sistema en cada carga
+// hasta que React hidrate.
+const scriptTema = `(function(){try{var t=localStorage.getItem("eike-tema");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}})();`;
+
+// suppressHydrationWarning abajo: el script no-FOUC escribe data-theme en
+// <html> antes de que React hidrate — es la única divergencia esperada
+// entre el HTML del servidor y el del cliente.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es-PY" className="h-full antialiased">
+    <html
+      lang="es-PY"
+      className={`h-full antialiased ${inter.variable} ${bricolage.variable}`}
+      suppressHydrationWarning
+    >
       <body className="min-h-full flex flex-col">
+        <script dangerouslySetInnerHTML={{ __html: scriptTema }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdSitio) }}

@@ -52,7 +52,7 @@ export function BotonCompartir({ titulo, url }: { titulo: string; url: string })
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button type="button" onClick={compartir} className="eike-btn eike-btn--cyan eike-btn--sm">
+      <button type="button" onClick={compartir} className="eike-btn eike-btn--amarillo eike-btn--sm">
         {copiado ? (
           "¡Link copiado!"
         ) : (

@@ -1,9 +1,12 @@
+import Image from "next/image";
 import Link from "next/link";
+import logoMarca from "@/app/logo-eike.png";
 import { requerirSesion } from "@/lib/auth/guardas";
 import { cerrarSesionAction } from "@/lib/acciones/auth";
 import { Avatar } from "@/componentes/ui/Avatar";
 import { Boton } from "@/componentes/ui/Boton";
 import { SkipLink } from "@/componentes/ui/SkipLink";
+import { SwitcherTema } from "@/componentes/ui/SwitcherTema";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +29,10 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
       <header className="eike-topbar">
         <div className="eike-topbar-row">
           <Link href="/" className="eike-brand">
-            <div className="eike-brand-mark">e</div>
-            <span className="eike-brand-word">eike</span>
+            <Image src={logoMarca} alt="eike e-ticket" className="eike-logo-marca eike-logo-marca--topbar" priority />
           </Link>
           <div className="eike-user-pill">
+            <SwitcherTema />
             {esComprador ? (
               <Link href="/eventos" className="eike-btn eike-btn--ghost eike-btn--sm">
                 Ver eventos

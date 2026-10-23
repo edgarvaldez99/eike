@@ -26,7 +26,7 @@ export default async function PaginaCarrito() {
         <Icono nombre="carrito" className="text-4xl" />
         <h1 className="text-xl font-extrabold">Tu carrito está vacío</h1>
         <p className="text-[13px] text-muted">Elegí un evento y agregá las entradas que quieras comprar.</p>
-        <Link href="/eventos" className="eike-btn eike-btn--cyan">
+        <Link href="/eventos" className="eike-btn eike-btn--amarillo">
           Ver eventos
         </Link>
       </div>
@@ -36,26 +36,24 @@ export default async function PaginaCarrito() {
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4">
       <div>
-        <span className="eike-eyebrow">Tu carrito</span>
+        <span className="eike-eyebrow">Completar datos</span>
         <h1 className="mt-1 text-xl font-extrabold">Entradas seleccionadas</h1>
         {resumen.segundosRestantes !== null ? (
           <ContadorCarrito key={resumen.segundosRestantes} segundosIniciales={resumen.segundosRestantes} />
         ) : null}
       </div>
 
-      <Card className="p-0">
-        <div className="flex flex-col divide-y divide-border-soft">
-          {resumen.items.map((item) => (
-            <FilaCarrito key={item.tandaId} item={item} />
-          ))}
-        </div>
-        <div className="flex items-center justify-between border-t border-border-soft p-4 font-semibold">
+      <div className="flex flex-col gap-3">
+        {resumen.items.map((item) => (
+          <FilaCarrito key={item.tandaId} item={item} />
+        ))}
+        <div className="flex items-center justify-between px-1 font-semibold">
           <span>Subtotal</span>
           <span>{formatoGs(resumen.subtotal)}</span>
         </div>
-      </Card>
+      </div>
 
-      <Card>
+      <Card className="border-2 border-lila">
         <FormularioCheckoutCarrito subtotal={resumen.subtotal} usuario={compradorSesion} />
       </Card>
     </div>

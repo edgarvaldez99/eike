@@ -50,7 +50,7 @@ export function GraficoTendencia({ tendencia }: { tendencia: PuntoTendencia[] })
               type="button"
               onClick={() => setSerie(opcion)}
               className={`rounded-full px-2.5 py-1 text-[11.5px] font-bold ${
-                serie === opcion ? "bg-cyan text-[#04222b]" : "text-muted"
+                serie === opcion ? "bg-amarillo text-[var(--color-on-amarillo)]" : "text-muted"
               }`}
             >
               {opcion === "venta" ? "Venta" : "Cancelaciones"}
@@ -62,8 +62,8 @@ export function GraficoTendencia({ tendencia }: { tendencia: PuntoTendencia[] })
       <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} className="block w-full" preserveAspectRatio="none">
         <defs>
           <linearGradient id={idGradiente} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-cyan)" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="var(--color-cyan)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--color-amarillo)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--color-amarillo)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {[0, 0.5, 1].map((frac) => (
@@ -78,10 +78,10 @@ export function GraficoTendencia({ tendencia }: { tendencia: PuntoTendencia[] })
           />
         ))}
         <path d={areaPath} fill={`url(#${idGradiente})`} />
-        <path d={lineaPath} fill="none" stroke="var(--color-cyan)" strokeWidth={2} />
+        <path d={lineaPath} fill="none" stroke="var(--color-amarillo)" strokeWidth={2} />
         {ultimo ? (
           <>
-            <circle cx={ultimo.x} cy={ultimo.y} r={3.5} fill="var(--color-cyan)" />
+            <circle cx={ultimo.x} cy={ultimo.y} r={3.5} fill="var(--color-amarillo)" />
             <text
               x={Math.min(ultimo.x, ANCHO - 90)}
               y={Math.max(ultimo.y - 10, 12)}

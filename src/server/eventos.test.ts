@@ -23,6 +23,7 @@ const datosEditar = {
   descripcion: null,
   fechaEvento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
   lugar: null,
+  direccion: null,
   aforoTotal: null,
 };
 

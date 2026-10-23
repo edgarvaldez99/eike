@@ -23,6 +23,7 @@ export const crearEventoAction = accionSegura({
       descripcion: datos.descripcion,
       fechaEvento: interpretarFechaLocal(datos.fecha_evento),
       lugar: datos.lugar,
+      direccion: datos.direccion,
       aforoTotal: datos.aforo_total ?? null,
       esGratuito: datos.es_gratuito,
     });
@@ -42,6 +43,7 @@ export const editarEventoAction = accionSegura({
       descripcion: datos.descripcion,
       fechaEvento: interpretarFechaLocal(datos.fecha_evento),
       lugar: datos.lugar,
+      direccion: datos.direccion,
       aforoTotal: datos.aforo_total ?? null,
     });
     revalidatePath(`/panel/organizador/eventos/${datos.id}`);

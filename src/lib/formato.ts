@@ -27,6 +27,31 @@ export function formatoFecha(fecha: Date): string {
   return formateadorFecha.format(fecha);
 }
 
+const formateadorFechaPill = new Intl.DateTimeFormat("es-PY", {
+  timeZone: "America/Asuncion",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+const formateadorDiaSemana = new Intl.DateTimeFormat("es-PY", {
+  timeZone: "America/Asuncion",
+  weekday: "long",
+});
+
+/**
+ * Fecha con el formato de marca del mockup (eike-webKV.pdf), ej.
+ * "23 | 08 | 2026", o con el día de la semana adelante, ej.
+ * "Domingo 23 | 08 | 2026". Siempre formatear en el servidor.
+ */
+export function formatoFechaPill(fecha: Date, opciones?: { conDiaSemana?: boolean }): string {
+  const partes = formateadorFechaPill.formatToParts(fecha);
+  const valor = (tipo: string) => partes.find((p) => p.type === tipo)?.value ?? "";
+  const ddMmYyyy = `${valor("day")} | ${valor("month")} | ${valor("year")}`;
+  if (!opciones?.conDiaSemana) return ddMmYyyy;
+  const diaSemana = formateadorDiaSemana.format(fecha);
+  return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)} ${ddMmYyyy}`;
+}
+
 /**
  * Link "click to chat" de WhatsApp (wa.me), con el mensaje pre-cargado.
  * wa.me exige el número en formato internacional, sin "+", espacios ni

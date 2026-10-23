@@ -43,7 +43,7 @@ export default async function LayoutDetalleEvento({
         <div>
           <Link
             href="/panel/organizador"
-            className="inline-flex items-center gap-1 text-[13px] text-cyan underline"
+            className="inline-flex items-center gap-1 text-[13px] text-lila-bright underline"
           >
             <Icono nombre="flecha" direccion="izquierda" /> Mis eventos
           </Link>

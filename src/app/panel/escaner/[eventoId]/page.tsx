@@ -27,7 +27,7 @@ export default async function PaginaEscaner({
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
       <div>
-        <Link href="/panel/escaner" className="inline-flex items-center gap-1 text-[13px] text-cyan underline">
+        <Link href="/panel/escaner" className="inline-flex items-center gap-1 text-[13px] text-lila-bright underline">
           <Icono nombre="flecha" direccion="izquierda" /> Elegir otro evento
         </Link>
         <h1 className="mt-2 text-xl font-extrabold">{evento.nombre}</h1>

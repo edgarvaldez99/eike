@@ -49,7 +49,7 @@ export function AvisoComprobanteWhatsapp({ numero, codigo }: { numero: string; c
           href={linkWhatsapp(numero, mensaje)}
           target="_blank"
           rel="noopener noreferrer"
-          className="eike-btn eike-btn--cyan eike-btn--sm"
+          className="eike-btn eike-btn--amarillo eike-btn--sm"
         >
           Abrir WhatsApp
         </a>

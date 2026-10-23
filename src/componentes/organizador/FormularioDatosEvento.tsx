@@ -60,6 +60,12 @@ export function FormularioDatosEvento({ evento }: { evento: typeof eventos.$infe
           error={errorCampo(estado, "fecha_evento")}
         />
         <CampoTexto etiqueta="Lugar" name="lugar" defaultValue={evento.lugar ?? ""} disabled={!puedeEditar} />
+        <CampoTexto
+          etiqueta="Dirección (opcional)"
+          name="direccion"
+          defaultValue={evento.direccion ?? ""}
+          disabled={!puedeEditar}
+        />
         <CampoMonto
           etiqueta="Aforo total (opcional)"
           name="aforo_total"

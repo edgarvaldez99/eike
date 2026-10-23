@@ -57,7 +57,7 @@ export function FormularioCompra({
                   onClick={() => setAsientoId(a.id)}
                   className={cn(
                     "eike-btn eike-btn--sm",
-                    asientoId === a.id ? "eike-btn--cyan" : "eike-btn--ghost",
+                    asientoId === a.id ? "eike-btn--amarillo" : "eike-btn--ghost",
                   )}
                 >
                   {a.identificador}
