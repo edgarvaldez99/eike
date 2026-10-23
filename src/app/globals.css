@@ -7,14 +7,14 @@
  * persistido vía [data-theme] en <html> (ver useTema/SwitcherTema).
  */
 :root {
-  --color-bg: #10141a;
-  --color-surface: #171d24;
-  --color-surface-2: #1e262f;
-  --color-surface-3: #232c37;
-  --color-border: #2b3540;
-  --color-border-soft: #212a34;
-  --color-text: #f3f4f6;
-  --color-muted: #8d99a8;
+  --color-bg: #0d0f16;
+  --color-surface: #161a24;
+  --color-surface-2: #1b2029;
+  --color-surface-3: #232a36;
+  --color-border: #2a3140;
+  --color-border-soft: #1e2431;
+  --color-text: #f6f4ef;
+  --color-muted: #9297a8;
   /* #5f6b7a original daba 3.1-3.4:1 de contraste sobre bg/surface — bajo el
      4.5:1 de WCAG AA para texto normal (código de ticket, peso de imagen).
      #828e9c pasa 4.5:1 sobre bg/surface/surface-2 y sigue un escalón por
@@ -24,10 +24,10 @@
   /* Amarillo — acción principal, títulos, precios (manual de marca). Como
      TEXTO PLANO da solo 1.70:1 sobre blanco, por eso el fondo de botón y el
      color de texto son tokens separados a propósito. */
-  --color-amarillo: #f5be4c;
-  --color-amarillo-deep: #d9a438; /* hover/pressed del botón primario */
+  --color-amarillo: #fdb825;
+  --color-amarillo-deep: #e0a21a; /* hover/pressed del botón primario */
   --color-amarillo-dim: #3a3019; /* fondo tenue de pill (7.65:1 con el texto) */
-  --color-amarillo-texto: #f5be4c; /* texto plano (Metrica acento, etc.) */
+  --color-amarillo-texto: #fdb825; /* texto plano (Metrica acento, etc.) */
   --color-on-amarillo: #0b0e17; /* texto fijo sobre fondo amarillo, 11.34:1 */
 
   /* Lila — acento secundario/interactivo: links, foco, tab activo, pill
@@ -35,9 +35,9 @@
      sobre --color-bg como texto — por eso el foreground usa -bright (tinte
      claro), y el base queda reservado para FONDOS (botón secundario,
      superficies), donde el manual pide texto blanco encima. */
-  --color-lila: #532880;
+  --color-lila: #6641be;
   --color-lila-bright: #a78bfa; /* 6.79:1 sobre --color-bg */
-  --color-lila-dim: #241a35;
+  --color-lila-dim: #231b3d;
   --color-on-lila: #ffffff;
 
   --color-green: #4ade80;
@@ -150,8 +150,8 @@
   /* Radios grandes (manual de marca / eike-webKV.pdf): botones casi pill,
      cards e inputs bien redondeados — ver también el border-radius: 999px
      fijo de .eike-btn más abajo, que ya no usa este token. */
-  --radius-eike: 20px;
-  --radius-eike-sm: 14px;
+  --radius-eike: 18px;
+  --radius-eike-sm: 12px;
 
   /* Escala 4/8/12/16/20/24/32/48 (doc del artifact) sale de una unidad base de 4px */
   --spacing: 4px;
@@ -162,7 +162,8 @@
      declaración. */
   --font-sans: var(--font-inter, -apple-system, "Segoe UI", "Helvetica Neue", Roboto, Arial, sans-serif);
   --font-titulos: var(--font-bricolage, var(--font-sans));
-  --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-mono: "Courier New", Courier, monospace;
+  --font-precio: var(--font-plex, var(--font-sans));
 }
 
 *,
@@ -283,20 +284,25 @@ th.num {
      ocupa espacio de verdad, <main> arranca en el mismo punto y su
      contenido se pinta encima (orden normal del DOM, sin z-index). */
   .eike-glow-fondo {
-    height: 480px;
-    margin-bottom: -480px;
+    height: 330px;
+    margin-bottom: -330px;
+    /* Geometría exacta de docs/GuiaDeEstilos/eike_svg_figma/01-home.svg:
+       elipses de 648×315 — coral #ec6648 al 50% a la izquierda (centro
+       -65,106 en un lienzo de 1440, con el header de 96px ya descontado) y
+       oro #f5c242 al 10% en el 81.5% del ancho. */
     background:
-      radial-gradient(ellipse 650px 480px at 0% 0%, rgba(107, 47, 42, 0.55), transparent 70%),
-      radial-gradient(ellipse 650px 480px at 100% 0%, rgba(110, 90, 40, 0.4), transparent 70%);
+      radial-gradient(ellipse 648px 315px at -65px 10px, rgba(236, 102, 72, 0.5), rgba(255, 84, 112, 0)),
+      radial-gradient(ellipse 648px 315px at 81.5% -95px, rgba(245, 194, 66, 0.1), rgba(245, 194, 66, 0));
     pointer-events: none;
   }
 
   .eike-eyebrow {
-    font-size: 11px;
+    font-family: var(--font-precio);
+    font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: 0.09em;
+    letter-spacing: 0.12em;
     color: var(--color-amarillo-texto);
-    font-weight: 600;
+    font-weight: 500;
   }
 
   .eike-card {
@@ -448,16 +454,16 @@ th.num {
     z-index: 30;
     /* Antes rgba(16, 20, 26, 0.92) fijo — quedaba oscuro aunque el tema
        pasara a claro, porque no dependía de --color-bg. */
-    background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+    background: color-mix(in srgb, var(--color-bg) 90%, transparent);
     backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--color-border-soft);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
   }
   .eike-topbar-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 16px max(24px, env(safe-area-inset-right)) 16px max(24px, env(safe-area-inset-left));
+    padding: 18px max(24px, env(safe-area-inset-right)) 18px max(24px, env(safe-area-inset-left));
     max-width: 1240px;
     margin: 0 auto;
   }
@@ -598,17 +604,17 @@ th.num {
   /* ---------- Campo de formulario ---------- */
   .eike-campo-label {
     /* 12.5px quedaba chico al lado de un input de 16px (ver .eike-campo-input) */
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-muted);
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--color-text);
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
   .eike-campo-input {
     width: 100%;
     background: var(--color-surface-2);
     /* Borde lila permanente (no solo en :focus) — eike-webKV.pdf. */
-    border: 1.5px solid var(--color-lila-bright);
+    border: 1px solid var(--color-lila);
     border-radius: var(--radius-eike-sm);
     color: var(--color-text);
     padding: 9px 12px;
@@ -639,7 +645,7 @@ th.num {
      eike-webKV.pdf muestra un dropzone, no el botón nativo del navegador
      suelto. */
   .eike-campo-archivo {
-    border: 1.5px dashed var(--color-lila-bright);
+    border: 1px dashed var(--color-lila);
     border-radius: var(--radius-eike-sm);
     padding: 14px 12px;
     text-align: center;

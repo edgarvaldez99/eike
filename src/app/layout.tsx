@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Inter } from "next/font/google";
+import { Bricolage_Grotesque, IBM_Plex_Sans, Inter } from "next/font/google";
 import "./globals.css";
 
 // Tipografía de marca (manual_eike.pdf): títulos en Bricolage Grotesque
@@ -14,6 +14,9 @@ const bricolage = Bricolage_Grotesque({
   display: "swap",
 });
 
+// IBM Plex Sans 500: precios y eyebrows del diseño (docs/GuiaDeEstilos/eike_svg_figma).
+const plex = IBM_Plex_Sans({ subsets: ["latin"], weight: ["500"], variable: "--font-plex", display: "swap" });
+
 // Soporta ambos temas (ver globals.css + useTema/SwitcherTema). themeColor
 // por @media refleja la preferencia del SISTEMA; cuando el usuario fuerza un
 // tema a mano, useTema sincroniza el <meta name="theme-color"> en runtime.
@@ -21,7 +24,7 @@ export const viewport: Viewport = {
   colorScheme: "dark light",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f7f8fa" },
-    { media: "(prefers-color-scheme: dark)", color: "#10141a" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d0f16" },
   ],
 };
 
@@ -59,7 +62,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="es-PY"
-      className={`h-full antialiased ${inter.variable} ${bricolage.variable}`}
+      className={`h-full antialiased ${inter.variable} ${bricolage.variable} ${plex.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">

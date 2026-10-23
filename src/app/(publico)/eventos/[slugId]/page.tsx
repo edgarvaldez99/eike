@@ -116,19 +116,19 @@ export default async function PaginaEvento({
     <div className="flex flex-col gap-6">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr] lg:grid-cols-[385px_1fr]">
         {evento.aficheUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={evento.aficheUrl}
             alt={evento.nombre}
             loading="lazy"
-            className={cn("eike-ticket aspect-[3/4] w-full border-2 object-cover", claseAcentoBorde)}
+            className={cn("eike-ticket aspect-[253/284] w-full border-2 object-cover", claseAcentoBorde)}
           />
         ) : (
           <div
             className={cn(
-              "eike-ticket flex aspect-[3/4] w-full items-center justify-center border-2 bg-surface-2 text-5xl text-muted-dim",
+              "eike-ticket flex aspect-[253/284] w-full items-center justify-center border-2 bg-surface-2 text-5xl text-muted-dim",
               claseAcentoBorde,
             )}
           >
@@ -137,7 +137,7 @@ export default async function PaginaEvento({
         )}
 
         <div>
-          <h1 className="text-2xl font-extrabold sm:text-3xl">{evento.nombre}</h1>
+          <h1 className="text-3xl font-bold tracking-[-0.02em] sm:text-[44px] sm:leading-[1.1]">{evento.nombre}</h1>
           <div className="mt-2 flex flex-col gap-1.5 text-[14px]">
             <span className="flex items-center gap-1.5">
               <Icono nombre="calendario" className="text-muted" />
@@ -172,7 +172,7 @@ export default async function PaginaEvento({
       </div>
 
       <Card className={cn("border-2 p-0", claseAcentoBorde)}>
-        <div className="p-4 pb-0 text-[15px] font-extrabold">Entradas</div>
+        <div className="p-4 pb-0 font-[family-name:var(--font-titulos)] text-[20px] font-bold">Entradas</div>
         <div className="flex flex-col divide-y divide-border-soft">
           {evento.tandas.length === 0 ? (
             <p className="p-4 text-muted">Todavía no hay entradas disponibles para este evento.</p>
@@ -180,9 +180,9 @@ export default async function PaginaEvento({
             evento.tandas.map((tanda) => (
               <div key={tanda.id} className="flex items-center justify-between gap-4 p-4">
                 <div>
-                  <div className="font-semibold">{tanda.nombre}</div>
-                  <div className="text-[13px] text-muted">
-                    <span className="text-amarillo-texto font-semibold">
+                  <div className="text-[16.5px] font-bold">{tanda.nombre}</div>
+                  <div className="font-mono text-[13px]">
+                    <span className="text-amarillo-texto font-[family-name:var(--font-precio)] text-[15px] font-medium">
                       {tanda.precio === 0 ? "Gratis" : formatoGs(tanda.precio)}
                     </span>{" "}
                     · {tanda.disponibles > 0 ? `${tanda.disponibles} disponibles` : "Agotado"}

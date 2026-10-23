@@ -16,8 +16,8 @@ export default async function Home() {
 
   return (
     <div className="flex flex-col gap-8">
-      <section className="py-6">
-        <h1 className="text-3xl font-extrabold sm:text-4xl">
+      <section className="py-6 sm:py-12 lg:pb-[150px] lg:pt-[140px]">
+        <h1 className="text-4xl font-bold leading-[1.1] tracking-[-0.02em] sm:text-5xl lg:text-[66px]">
           <span className="text-amarillo-texto">Comprá. Mostrá el QR.</span>
           <br />
           Entrá, <span className="text-lila-bright">¡eike!</span>
@@ -42,7 +42,7 @@ export default async function Home() {
           mismo lenguaje visual que el ícono de marca (src/app/icon.png). */}
       <section
         aria-hidden="true"
-        className="eike-full-bleed relative flex aspect-[21/9] items-center justify-center overflow-hidden sm:aspect-[3/1]"
+        className="eike-full-bleed relative flex aspect-[21/9] items-center justify-center overflow-hidden sm:aspect-[1440/333]"
         style={{
           background:
             "linear-gradient(135deg, var(--color-lila) 0%, var(--color-bg) 55%, var(--color-bg) 100%)",
@@ -60,9 +60,9 @@ export default async function Home() {
         <span className="eike-eyebrow relative text-[12px] sm:text-[14px]">Próximos eventos destacados</span>
       </section>
 
-      <section className="flex flex-col gap-4">
+      <section className="flex flex-col gap-4 sm:gap-6 lg:mt-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-[15px] font-extrabold">Próximos eventos</h2>
+          <h2 className="text-[22px] font-bold tracking-[-0.01em] sm:text-[26px]">Próximos eventos</h2>
           <span className="text-[13px] text-muted">Asunción y todo Paraguay</span>
           {eventos.length > destacados.length ? (
             <Link href="/eventos" className="inline-flex items-center gap-1 text-[13px] text-lila-bright underline">

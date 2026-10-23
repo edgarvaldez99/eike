@@ -34,10 +34,10 @@ export default async function PaginaCarrito() {
   }
 
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-4">
+    <div className="mx-auto flex max-w-[720px] flex-col gap-4">
       <div>
         <span className="eike-eyebrow">Completar datos</span>
-        <h1 className="mt-1 text-xl font-extrabold">Entradas seleccionadas</h1>
+        <h1 className="mt-1 text-[28px] font-bold tracking-[-0.02em] sm:text-4xl">Entradas seleccionadas</h1>
         {resumen.segundosRestantes !== null ? (
           <ContadorCarrito key={resumen.segundosRestantes} segundosIniciales={resumen.segundosRestantes} />
         ) : null}

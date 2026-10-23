@@ -13,7 +13,7 @@ export function TarjetaEvento({ evento }: { evento: EventoPublico }) {
     <Link
       href={`/eventos/${armarSlugEvento(evento.id, evento.nombre)}`}
       className={cn(
-        "eike-card eike-ticket flex h-full flex-col overflow-hidden border-2",
+        "eike-card eike-ticket flex h-full w-full max-w-[253px] flex-col overflow-hidden border-2",
         acento === "amarillo" ? "border-amarillo" : "border-lila",
       )}
     >
@@ -23,19 +23,19 @@ export function TarjetaEvento({ evento }: { evento: EventoPublico }) {
           src={evento.aficheUrl}
           alt={evento.nombre}
           loading="lazy"
-          className="aspect-[3/4] w-full object-cover"
+          className="aspect-[253/284] w-full object-cover"
         />
       ) : (
-        <div className="flex aspect-[3/4] w-full items-center justify-center bg-surface-2 text-4xl text-muted-dim">
+        <div className="flex aspect-[253/284] w-full items-center justify-center bg-surface-2 text-4xl text-muted-dim">
           <Icono nombre="ticket" />
         </div>
       )}
       <div className="flex flex-1 flex-col gap-1.5 p-4">
-        <h3 className="line-clamp-2 font-bold leading-tight">{evento.nombre}</h3>
+        <h3 className="line-clamp-2 text-[18px] font-bold leading-tight">{evento.nombre}</h3>
         <div
           className={cn(
-            "w-fit rounded-[var(--radius-eike-sm)] border px-2 py-0.5 font-mono text-[12px] tracking-wide",
-            acento === "amarillo" ? "border-amarillo text-amarillo-texto" : "border-lila-bright text-lila-bright",
+            "w-fit rounded-[8.5px] border px-2 py-1.5 font-mono text-[11.7px] text-text",
+            acento === "amarillo" ? "border-amarillo" : "border-lila",
           )}
         >
           {formatoFechaPill(evento.fechaEvento)}
