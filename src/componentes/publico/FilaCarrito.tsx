@@ -34,21 +34,21 @@ export function FilaCarrito({ item }: { item: ItemCarrito }) {
   return (
     <div
       className={cn(
-        "eike-card flex items-center justify-between gap-4 border-2 p-3",
+        "eike-card flex items-center justify-between gap-4 border-2 p-3 sm:px-6 sm:py-[21px]",
         acento === "amarillo" ? "border-amarillo" : "border-lila",
       )}
     >
       <div className="flex items-center gap-3">
         {item.aficheUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.aficheUrl} alt="" className="h-14 w-14 flex-none rounded-[var(--radius-eike-sm)] object-cover" />
+          <img src={item.aficheUrl} alt="" className="h-12 w-12 flex-none rounded-[var(--radius-eike-sm)] object-cover" />
         ) : (
-          <div className="flex h-14 w-14 flex-none items-center justify-center rounded-[var(--radius-eike-sm)] bg-surface-2 text-xl text-muted-dim">
+          <div className="flex h-12 w-12 flex-none items-center justify-center rounded-[var(--radius-eike-sm)] bg-surface-2 text-xl text-muted-dim">
             <Icono nombre="ticket" />
           </div>
         )}
         <div>
-          <div className="font-semibold">
+          <div className="font-bold">
             {item.tandaNombre}
             {item.asientoIdentificador ? ` · Asiento ${item.asientoIdentificador}` : ""}
           </div>
@@ -85,7 +85,7 @@ export function FilaCarrito({ item }: { item: ItemCarrito }) {
             </button>
           </div>
         )}
-        <div className="w-24 text-right font-semibold">{formatoGs(item.subtotal)}</div>
+        <div className="w-24 text-right font-[family-name:var(--font-precio)] text-[19px] font-medium text-amarillo-texto">{formatoGs(item.subtotal)}</div>
         <button
           type="button"
           disabled={pendiente}

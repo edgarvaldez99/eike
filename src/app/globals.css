@@ -617,7 +617,7 @@ th.num {
     border: 1px solid var(--color-lila);
     border-radius: var(--radius-eike-sm);
     color: var(--color-text);
-    padding: 9px 12px;
+    padding: 11px 14px;
     /* 16px por default: por debajo de eso, iOS Safari hace auto-zoom al
        enfocar el input. Se prefiere esto a fijar maximum-scale=1 en el
        viewport, que bloquearía el zoom del usuario. */

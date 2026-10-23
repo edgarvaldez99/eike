@@ -64,7 +64,7 @@ export default async function LayoutPublico({ children }: { children: React.Reac
         </div>
       </header>
       <div aria-hidden="true" className="eike-full-bleed eike-glow-fondo" />
-      <main id="contenido-principal" className="mx-auto w-full max-w-[1240px] flex-1 p-6">
+      <main id="contenido-principal" className="mx-auto w-full max-w-[1264px] flex-1 p-6">
         {children}
       </main>
       <footer className="eike-safe-bottom border-t border-border-soft">

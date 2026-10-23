@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import type { Metadata } from "next";
 import { obtenerEventoPublicoPorId } from "@/server/eventos";
@@ -111,12 +112,17 @@ export default async function PaginaEvento({
 
   const acento = acentoEvento(evento.id);
   const claseAcentoBorde = acento === "amarillo" ? "border-amarillo" : "border-lila";
+  const claseAcentoDivisor = acento === "amarillo" ? "divide-amarillo" : "divide-lila";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 lg:gap-[100px]">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr] lg:grid-cols-[385px_1fr]">
+      <Link href="/" className="flex w-fit items-center gap-1.5 text-[14px] text-muted hover:text-text">
+        <span aria-hidden="true">←</span> Volver a eventos
+      </Link>
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[280px_1fr] lg:grid-cols-[385px_1fr] lg:items-center lg:gap-x-12">
         {evento.aficheUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -172,13 +178,15 @@ export default async function PaginaEvento({
       </div>
 
       <Card className={cn("border-2 p-0", claseAcentoBorde)}>
-        <div className="p-4 pb-0 font-[family-name:var(--font-titulos)] text-[20px] font-bold">Entradas</div>
-        <div className="flex flex-col divide-y divide-border-soft">
+        <div className={cn("flex h-16 items-center border-b px-4 font-[family-name:var(--font-titulos)] text-[20px] font-bold sm:px-[26px]", claseAcentoBorde)}>
+          Entradas
+        </div>
+        <div className={cn("flex flex-col divide-y divide-dashed", claseAcentoDivisor)}>
           {evento.tandas.length === 0 ? (
             <p className="p-4 text-muted">Todavía no hay entradas disponibles para este evento.</p>
           ) : (
             evento.tandas.map((tanda) => (
-              <div key={tanda.id} className="flex items-center justify-between gap-4 p-4">
+              <div key={tanda.id} className="flex min-h-[90px] items-center justify-between gap-4 px-4 py-4 sm:px-[26px]">
                 <div>
                   <div className="text-[16.5px] font-bold">{tanda.nombre}</div>
                   <div className="font-mono text-[13px]">

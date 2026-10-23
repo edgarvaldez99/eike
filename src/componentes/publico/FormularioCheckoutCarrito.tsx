@@ -30,7 +30,7 @@ export function FormularioCheckoutCarrito({
   const esGratis = total <= 0;
 
   return (
-    <form action={accion} encType="multipart/form-data" className="flex flex-col gap-4">
+    <form action={accion} encType="multipart/form-data" className="flex flex-col gap-6">
       <input type="hidden" name="codigo_cupon" value={cupon?.codigo ?? ""} />
 
       <CampoTexto
@@ -100,7 +100,7 @@ export function FormularioCheckoutCarrito({
 
       <AvisoError mensaje={mensajeError(estado, ["nombre_comprador", "email"])} />
 
-      <Boton type="submit" disabled={pendiente} className="justify-center">
+      <Boton type="submit" disabled={pendiente} className="min-h-[54px] justify-center rounded-[14px] text-[16px]">
         {pendiente ? "Procesando…" : "Confirmar compra"}
       </Boton>
     </form>

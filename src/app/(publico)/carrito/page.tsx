@@ -35,6 +35,9 @@ export default async function PaginaCarrito() {
 
   return (
     <div className="mx-auto flex max-w-[720px] flex-col gap-4">
+      <Link href="/" className="flex w-fit items-center gap-1.5 text-[14px] text-muted hover:text-text">
+        <span aria-hidden="true">←</span> Volver a eventos
+      </Link>
       <div>
         <span className="eike-eyebrow">Completar datos</span>
         <h1 className="mt-1 text-[28px] font-bold tracking-[-0.02em] sm:text-4xl">Entradas seleccionadas</h1>
@@ -53,7 +56,7 @@ export default async function PaginaCarrito() {
         </div>
       </div>
 
-      <Card className="border-2 border-lila">
+      <Card className="border-2 border-lila sm:p-8">
         <FormularioCheckoutCarrito subtotal={resumen.subtotal} usuario={compradorSesion} />
       </Card>
     </div>
