@@ -13,6 +13,8 @@ interface CorreoFalso {
   messageId?: string;
   /** Si está, simpleParser lanza esto (un Error o cualquier otro valor). */
   falla?: unknown;
+  /** Encabezados extra del correo (ej. "resent-from" de un reenvío sin modificar). */
+  encabezados?: string[];
 }
 
 const falso = vi.hoisted(() => ({
@@ -63,6 +65,7 @@ vi.mock("mailparser", () => ({
       text: c.text,
       html: c.html,
       messageId: c.messageId,
+      headers: new Map((c.encabezados ?? []).map((h) => [h, "x"])),
       from: c.from === null ? undefined : { value: [{ address: c.from ?? "Info@Itau.com.py" }] },
     };
   },
@@ -103,6 +106,7 @@ describe("leerCorreoBanco", () => {
     vi.stubEnv("IMAP_PORT", "");
     vi.stubEnv("CONCILIACION_REMITENTES", "");
     vi.stubEnv("CONCILIACION_EXIGIR_DKIM", "");
+    vi.stubEnv("CONCILIACION_CUENTAS", "");
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
   });
@@ -234,6 +238,29 @@ describe("leerCorreoBanco", () => {
     it("en producción un correo del banco con firma válida se acepta", async () => {
       vi.stubEnv("NODE_ENV", "production");
       correos(avisoDe(1));
+      expect(await leerCorreoBanco()).toMatchObject({ sinCruzar: 1, descartados: 0 });
+    });
+
+    it("un correo reenviado sin modificar (Resent-*) se descarta aunque la firma del banco siga válida", async () => {
+      correos(avisoDe(1, { encabezados: ["resent-from"] }), avisoDe(2, { encabezados: ["resent-message-id"] }));
+      expect(await leerCorreoBanco()).toMatchObject({ descartados: 2, sinCruzar: 0 });
+    });
+
+    it("con CONCILIACION_CUENTAS, un aviso de Itaú a otra cuenta se descarta y a la propia se acepta", async () => {
+      vi.stubEnv("CONCILIACION_CUENTAS", " 26523697 , ");
+      correos(
+        avisoDe(1, { text: `${AVISO}
+Nro. de cuenta crédito:    0000000026523697` }),
+        avisoDe(2, { text: `${AVISO.replace("OP-1", "OP-2")}
+Nro. de cuenta crédito:    0000000099999999` }),
+      );
+      expect(await leerCorreoBanco()).toMatchObject({ sinCruzar: 1, descartados: 1 });
+    });
+
+    it("sin CONCILIACION_CUENTAS definida no se verifica la cuenta destino", async () => {
+      vi.stubEnv("CONCILIACION_CUENTAS", undefined);
+      correos(avisoDe(1, { text: `${AVISO}
+Nro. de cuenta crédito:    0000000099999999` }));
       expect(await leerCorreoBanco()).toMatchObject({ sinCruzar: 1, descartados: 0 });
     });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { htmlATexto, normalizarMonto, parsearAvisoBanco, remitenteAutorizado } from "./parser-banco";
+import { cuentaDestinoAutorizada, htmlATexto, normalizarMonto, parsearAvisoBanco, remitenteAutorizado } from "./parser-banco";
 
 const ITAU = `Transferencia recibida
 A continuación el detalle de la operación:
@@ -48,6 +48,7 @@ describe("parsearAvisoBanco", () => {
       fecha: "08/06/2026 17:42:39",
       referencia: "MOTO",
       operacion: "BCNAPYPA080626637590121866944",
+      cuentaDestino: "0000000026523697",
     });
   });
 
@@ -83,6 +84,7 @@ disposición; ante cualquier duda o consulta, podés llamar gratuítamente al 08
       fecha: "16/11/2026 20:30:30",
       referencia: null, // el comentario vacío no se traga el pie del correo
       operacion: "123456789",
+      cuentaDestino: null,
     });
   });
 
@@ -99,6 +101,7 @@ disposición; ante cualquier duda o consulta, podés llamar gratuítamente al 08
       fecha: "06/06/2026 02:02:10",
       referencia: null,
       operacion: null,
+      cuentaDestino: null,
     });
   });
 
@@ -129,6 +132,7 @@ Cliente Pagador:    ANA
       fecha: null,
       referencia: "MOTO",
       operacion: null,
+      cuentaDestino: null,
     });
   });
 
@@ -150,6 +154,36 @@ Nro. de cuenta crédito:    0000000026523697`);
   it("sin Nº de operación usa el Nº de comprobante como identificador", () => {
     expect(parsearAvisoBanco(`${BASE_ITAU}Nro. comprobante:    2946363
 `)?.operacion).toBe("2946363");
+  });
+});
+
+describe("cuentaDestino y cuentaDestinoAutorizada", () => {
+  it("solo Itaú informa la cuenta destino; Familiar y UENO la dejan en null", () => {
+    expect(parsearAvisoBanco(FAMILIAR)?.cuentaDestino).toBeNull();
+    expect(parsearAvisoBanco(UENO)?.cuentaDestino).toBeNull();
+  });
+
+  const itau = (cuentaDestino: string | null) => ({ banco: "Itaú" as const, cuentaDestino });
+
+  it("sin cuentas configuradas no se verifica nada", () => {
+    expect(cuentaDestinoAutorizada(itau("999"), [])).toBe(true);
+    expect(cuentaDestinoAutorizada(itau("999"), ["", "  "])).toBe(true);
+  });
+
+  it("Itaú: la cuenta destino tiene que ser una de las propias (solo dígitos, sin ceros a la izquierda)", () => {
+    const propias = ["26523697", "0000-0000-1234"];
+    expect(cuentaDestinoAutorizada(itau("0000000026523697"), propias)).toBe(true);
+    expect(cuentaDestinoAutorizada(itau("1234"), propias)).toBe(true);
+    expect(cuentaDestinoAutorizada(itau("0000000099999999"), propias)).toBe(false);
+  });
+
+  it("Itaú sin cuenta destino legible no se acepta cuando hay cuentas configuradas", () => {
+    expect(cuentaDestinoAutorizada(itau(null), ["26523697"])).toBe(false);
+  });
+
+  it("Familiar y UENO no informan la cuenta: no se pueden verificar y se aceptan", () => {
+    expect(cuentaDestinoAutorizada({ banco: "Familiar", cuentaDestino: null }, ["26523697"])).toBe(true);
+    expect(cuentaDestinoAutorizada({ banco: "UENO", cuentaDestino: null }, ["26523697"])).toBe(true);
   });
 });
 

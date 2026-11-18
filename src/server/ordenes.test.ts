@@ -125,13 +125,13 @@ describe("obtenerPendientes", () => {
       remitente: "info@itau.com.py",
       autenticado: true,
       sospechoso: false,
-      datos: { banco: "Itaú", monto: 50000, pagador: "X", fecha: null, referencia: null, operacion: "OP-V" },
+      datos: { banco: "Itaú", monto: 50000, pagador: "ANA MARIA PEREZ", fecha: null, referencia: null, operacion: "OP-V", cuentaDestino: null },
     });
     expect((await obtenerPendientes(sesion))[0].verificacionPago).toBe("banco");
 
     await db
       .insert(comprobantesWhatsapp)
-      .values({ waMessageId: "wamid.v", waFrom: "595991258700", estado: "pendiente_banco", monto: 50000, ordenId });
+      .values({ waMessageId: "wamid.v", waFrom: "595991258700", estado: "pendiente_banco", monto: 50000, pagador: "PEREZ GOMEZ ANA MARIA", ordenId });
     await cruzarComprobantesConAvisos();
     expect((await obtenerPendientes(sesion))[0].verificacionPago).toBe("doble_check");
   });

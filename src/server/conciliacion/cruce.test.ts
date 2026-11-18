@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/cliente";
-import { comprobantesWhatsapp } from "@/db/esquema";
+import { avisosBanco, comprobantesWhatsapp } from "@/db/esquema";
 import { crearOrden, crearUsuario } from "@/test/fixtures";
 import { registrarAviso } from "./avisos";
 import { cruzarComprobantesConAvisos } from "./cruce";
@@ -11,17 +11,17 @@ async function comprobante(monto: number | null, extra: Partial<typeof comproban
   seq += 1;
   const [fila] = await db
     .insert(comprobantesWhatsapp)
-    .values({ waMessageId: `wamid.${seq}`, waFrom: "595991258700", estado: "pendiente_banco", monto, ...extra })
+    .values({ waMessageId: `wamid.${seq}`, waFrom: "595991258700", estado: "pendiente_banco", monto, pagador: "ANA MARIA PEREZ", ...extra })
     .returning();
   return fila;
 }
-const aviso = (monto: number, operacion: string, sospechoso = false) =>
+const aviso = (monto: number, operacion: string, sospechoso = false, pagador: string | null = "PEREZ GOMEZ ANA MARIA") =>
   registrarAviso({
     messageId: `<${operacion}@test>`,
     remitente: "info@itau.com.py",
     autenticado: true,
     sospechoso,
-    datos: { banco: "Itaú", monto, pagador: "X", fecha: null, referencia: null, operacion },
+    datos: { banco: "Itaú", monto, pagador, fecha: null, referencia: null, operacion, cuentaDestino: null },
   });
 const estadoDe = async (id: number) =>
   (await db.select().from(comprobantesWhatsapp).where(eq(comprobantesWhatsapp.id, id)))[0];
@@ -47,6 +47,40 @@ describe("cruzarComprobantesConAvisos (doble check)", () => {
     const c = await comprobante(55000);
     expect(await cruzarComprobantesConAvisos()).toBe(1);
     expect((await estadoDe(c.id)).estado).toBe("confirmado");
+  });
+
+  it("el monto solo no alcanza: con otro pagador el comprobante queda pendiente de revisión", async () => {
+    await aviso(65000, "OP-A", false, "JUAN CARLOS BENITEZ");
+    const c = await comprobante(65000); // pagador del comprobante: ANA MARIA PEREZ
+    expect(await cruzarComprobantesConAvisos()).toBe(0);
+    expect((await estadoDe(c.id)).estado).toBe("pendiente_banco");
+  });
+
+  it("sin pagador en el aviso (ej. UENO) tampoco se confirma solo por el monto", async () => {
+    await aviso(66000, "OP-B", false, null);
+    const c = await comprobante(66000);
+    expect(await cruzarComprobantesConAvisos()).toBe(0);
+    expect((await estadoDe(c.id)).estado).toBe("pendiente_banco");
+  });
+
+  it("confirma por el Nº de comprobante aunque el pagador no coincida", async () => {
+    await aviso(67000, "BCNAPYPA0806266375901", false, null);
+    const c = await comprobante(67000, { nroComprobante: "BCNAPYPA0806266375901", pagador: null });
+    expect(await cruzarComprobantesConAvisos()).toBe(1);
+    expect((await estadoDe(c.id)).estado).toBe("confirmado");
+  });
+
+  it("con varios avisos del mismo monto confirma el que corrobora, no simplemente el primero", async () => {
+    await aviso(68000, "OP-C1", false, "JUAN CARLOS BENITEZ");
+    await aviso(68000, "OP-C2");
+    const c = await comprobante(68000);
+
+    expect(await cruzarComprobantesConAvisos()).toBe(1);
+
+    const fila = await estadoDe(c.id);
+    expect(fila.estado).toBe("confirmado");
+    const [elegido] = await db.select().from(avisosBanco).where(eq(avisosBanco.id, fila.avisoId as number));
+    expect(elegido.operacion).toBe("OP-C2");
   });
 
   it("monto distinto → no confirma", async () => {

@@ -1,6 +1,7 @@
 import { and, eq, isNotNull, ne, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { avisosBanco, comprobantesWhatsapp } from "@/db/esquema";
+import { coincidenciasPago, estaCorroborado } from "./coincidencias";
 
 // Clave fija del advisory lock: serializa el cruce entre el webhook de
 // WhatsApp y el cron del correo, que pueden correr a la vez.
@@ -8,8 +9,11 @@ const LOCK_CRUCE = 727401;
 
 /**
  * DOBLE CHECK: cruza los comprobantes de WhatsApp que pasaron el pre-check
- * ('pendiente_banco') con los avisos del banco por el MISMO MONTO. Cada aviso
- * confirma un solo comprobante. Se llama después de registrar cualquiera de
+ * ('pendiente_banco') con los avisos del banco por el MISMO MONTO y al menos
+ * UN DATO MÁS que lo corrobore (el pagador o el Nº de comprobante, ver
+ * coincidencias.ts): el monto solo no prueba que el aviso sea de ese pago.
+ * Un comprobante sin corroboración queda 'pendiente_banco' para revisión
+ * manual. Cada aviso confirma un solo comprobante. Se llama después de registrar cualquiera de
  * los dos lados, así el orden de llegada no importa (primero el comprobante o
  * primero el correo del banco).
  *
@@ -40,7 +44,7 @@ export async function cruzarComprobantesConAvisos(): Promise<number> {
         .map((f) => f.id)
         .filter((id): id is number => id !== null);
 
-      const [aviso] = await tx
+      const avisosDelMonto = await tx
         .select()
         .from(avisosBanco)
         .where(
@@ -50,8 +54,8 @@ export async function cruzarComprobantesConAvisos(): Promise<number> {
             usados.length > 0 ? notInArray(avisosBanco.id, usados) : undefined,
           ),
         )
-        .orderBy(avisosBanco.id)
-        .limit(1);
+        .orderBy(avisosBanco.id);
+      const aviso = avisosDelMonto.find((a) => estaCorroborado(coincidenciasPago(c, a)));
       if (!aviso) continue;
 
       if (c.ordenId !== null && aviso.ordenId !== null && c.ordenId !== aviso.ordenId) {

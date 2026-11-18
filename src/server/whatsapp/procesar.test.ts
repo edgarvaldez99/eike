@@ -54,7 +54,7 @@ describe("procesarPayload", () => {
       remitente: "info@itau.com.py",
       autenticado: true,
       sospechoso: false,
-      datos: { banco: "Itaú", monto: 10000, pagador: "X", fecha: null, referencia: null, operacion: "OP-9" },
+      datos: { banco: "Itaú", monto: 10000, pagador: "PAGADOR DE PRUEBA", fecha: null, referencia: null, operacion: "OP-9", cuentaDestino: null },
     });
     await procesarPayload(mensaje("wamid.B"), await deps());
     const [fila] = await db.select().from(comprobantesWhatsapp);
@@ -70,12 +70,60 @@ describe("procesarPayload", () => {
     expect(await db.select().from(comprobantesWhatsapp)).toHaveLength(1);
   });
 
-  it("el mismo Nº de comprobante en otro mensaje queda 'duplicado'", async () => {
+  it("el mismo Nº de comprobante mientras el anterior sigue sin confirmar deja a AMBOS observados para revisión", async () => {
     const d = await deps();
     await procesarPayload(mensaje("wamid.D1"), d);
     await procesarPayload(mensaje("wamid.D2"), d);
-    const filas = await db.select().from(comprobantesWhatsapp);
-    expect(filas.map((f) => f.estado).sort()).toEqual(["duplicado", "pendiente_banco"]);
+
+    const filas = await db.select().from(comprobantesWhatsapp).orderBy(comprobantesWhatsapp.id);
+
+    expect(filas.map((f) => f.estado)).toEqual(["observado", "observado"]);
+    expect(filas[0].problemas).toContain("se repite en otro comprobante");
+    expect(filas[1].problemas).toContain("ya lo usó el comprobante #");
+  });
+
+  it("si el anterior ya fue confirmado por el banco, el repetido queda 'duplicado'", async () => {
+    await registrarAviso({
+      messageId: "<d@test>",
+      remitente: "info@itau.com.py",
+      autenticado: true,
+      sospechoso: false,
+      datos: { banco: "Itaú", monto: 10000, pagador: "PAGADOR DE PRUEBA", fecha: null, referencia: null, operacion: "OP-D", cuentaDestino: null },
+    });
+    const d = await deps();
+    await procesarPayload(mensaje("wamid.D3"), d);
+    await procesarPayload(mensaje("wamid.D4"), d);
+
+    const filas = await db.select().from(comprobantesWhatsapp).orderBy(comprobantesWhatsapp.id);
+
+    expect(filas.map((f) => f.estado)).toEqual(["confirmado", "duplicado"]);
+    expect(filas[1].problemas).toContain("ya confirmado antes");
+  });
+
+  it("el mismo Nº en bancos distintos no es una repetición", async () => {
+    const d = await deps();
+    await procesarPayload(mensaje("wamid.D5"), d);
+    d.ocr = vi.fn(async () => TEXTO_OCR.replace("ueno bank", "Banco Familiar"));
+    await procesarPayload(mensaje("wamid.D6"), d);
+
+    const filas = await db.select().from(comprobantesWhatsapp).orderBy(comprobantesWhatsapp.id);
+
+    expect(filas.map((f) => f.banco)).toEqual(["ueno", "Familiar"]);
+    expect(filas.map((f) => f.estado)).toEqual(["pendiente_banco", "pendiente_banco"]);
+  });
+
+  it("sin banco reconocido, solo se compara contra otros comprobantes sin banco", async () => {
+    const d = await deps(`Comprobante de transferencia
+Nro. de comprobante: 2607093255696 · GS. 10.000`);
+    await procesarPayload(mensaje("wamid.D7"), d);
+    await procesarPayload(mensaje("wamid.D8"), d);
+
+    const filas = await db.select().from(comprobantesWhatsapp).orderBy(comprobantesWhatsapp.id);
+
+    expect(filas.map((f) => [f.banco, f.estado])).toEqual([
+      [null, "observado"],
+      [null, "observado"],
+    ]);
   });
 
   it("si el OCR falla o no lee monto, queda 'sin_datos' con el motivo", async () => {

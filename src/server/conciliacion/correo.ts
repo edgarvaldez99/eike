@@ -3,7 +3,7 @@ import { simpleParser } from "mailparser";
 import { registrarAviso } from "./avisos";
 import { cruzarComprobantesConAvisos } from "./cruce";
 import { dkimAutenticaRemitente } from "./dkim";
-import { htmlATexto, parsearAvisoBanco, remitenteAutorizado } from "./parser-banco";
+import { cuentaDestinoAutorizada, htmlATexto, parsearAvisoBanco, remitenteAutorizado } from "./parser-banco";
 
 const REMITENTES_POR_DEFECTO = "itau.com.py,familiar.com.py,ueno.com.py";
 
@@ -49,6 +49,14 @@ function remitentesPermitidos(): { lista: string[]; aceptarTodos: boolean } {
   return { lista: crudo.split(",").map((x) => x.trim()).filter(Boolean), aceptarTodos: false };
 }
 
+/** Cuentas propias (CONCILIACION_CUENTAS="123456,789012"): ver cuentaDestinoAutorizada. */
+function cuentasPropias(): string[] {
+  return (process.env.CONCILIACION_CUENTAS ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+}
+
+/** Encabezados que agrega quien reenvía un correo SIN modificarlo (la firma DKIM sigue siendo válida). */
+const ENCABEZADOS_DE_REENVIO = ["resent-from", "resent-to", "resent-date", "resent-message-id"];
+
 /**
  * Lee del buzón de pagos los correos NO leídos, extrae los avisos de
  * transferencia del banco y los cruza con las órdenes pendientes. Marca como
@@ -62,10 +70,16 @@ function remitentesPermitidos(): { lista: string[]; aceptarTodos: boolean } {
  * hay variable que la desactive; fuera de producción se exige solo con
  * CONCILIACION_EXIGIR_DKIM=true (los correos reenviados desde Gmail pierden la
  * firma del banco).
+ *
+ * Además se descarta el aviso si no es de nuestra cuenta (CONCILIACION_CUENTAS,
+ * ver cuentaDestinoAutorizada) o si el correo fue reenviado sin modificar
+ * (encabezados Resent-*): un aviso real de OTRA operación, reenviado tal cual,
+ * conserva la firma del banco y de otro modo pasaría por válido.
  */
 export async function leerCorreoBanco(): Promise<ResumenLectura> {
   const cfg = configImap();
   const { lista: permitidos, aceptarTodos } = remitentesPermitidos();
+  const cuentas = cuentasPropias();
   const exigirDkim = process.env.NODE_ENV === "production" || process.env.CONCILIACION_EXIGIR_DKIM === "true";
   const resumen: ResumenLectura = {
     revisados: 0,
@@ -105,8 +119,13 @@ export async function leerCorreoBanco(): Promise<ResumenLectura> {
         if (datos === null) {
           resumen.ignorados += 1;
         } else {
+          const reenviado = ENCABEZADOS_DE_REENVIO.some((h) => correo.headers.has(h));
           const sospechoso =
-            !remitente || !(aceptarTodos || remitenteAutorizado(remitente, permitidos)) || (exigirDkim && !autenticado);
+            !remitente ||
+            !(aceptarTodos || remitenteAutorizado(remitente, permitidos)) ||
+            (exigirDkim && !autenticado) ||
+            !cuentaDestinoAutorizada(datos, cuentas) ||
+            reenviado;
           const resultado = await registrarAviso({
             messageId: correo.messageId ?? `imap-${cfg.user}-${uid}`,
             remitente,

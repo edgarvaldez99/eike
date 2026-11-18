@@ -17,6 +17,8 @@ export interface AvisoParseado {
   /** Concepto/comentario que escribió el pagador, si el banco lo trae. */
   referencia: string | null;
   operacion: string | null;
+  /** Cuenta que recibió la plata ("Nro. de cuenta crédito"). Hoy solo la trae Itaú; Familiar y UENO no. */
+  cuentaDestino: string | null;
 }
 
 // [ \t]* y no \s*: el valor está en la misma línea que la etiqueta, y un
@@ -107,6 +109,7 @@ export function parsearAvisoBanco(texto: string): AvisoParseado | null {
         valorDe(plano, String.raw`Nro\. de operaci[oó]n`)?.split(" ")[0] ??
         valorDe(plano, String.raw`Nro\. comprobante`)?.split(" ")[0] ??
         null,
+      cuentaDestino: esItau ? valorDe(plano, String.raw`Nro\. de cuenta cr[eé]dito`) : null,
     };
   }
   if (esUeno) {
@@ -119,9 +122,31 @@ export function parsearAvisoBanco(texto: string): AvisoParseado | null {
       fecha: capturar(/Fecha y hora transferencia\s+([\d/]{8,10}\s+[\d:]{5,8})/i, t),
       referencia: null,
       operacion: null,
+      cuentaDestino: null,
     };
   }
   return null;
+}
+
+const soloDigitosSinCeros = (cuenta: string) => cuenta.replace(/\D/g, "").replace(/^0+/, "");
+
+/**
+ * ¿El aviso es de una transferencia a NUESTRA cuenta? Un correo del banco con
+ * firma válida prueba que lo mandó el banco, no que la plata entró acá: un
+ * aviso real de otra operación, reenviado tal cual al buzón, también pasa la
+ * firma. Por eso, si se configuró la lista de cuentas propias, la cuenta
+ * destino del aviso tiene que estar en ella.
+ *
+ * Solo Itaú informa la cuenta destino; Familiar y UENO no, así que con esos
+ * bancos no hay forma de verificarlo y se acepta (la defensa ahí es la firma
+ * DKIM, el rechazo de reenvíos y la revisión manual). Sin cuentas
+ * configuradas no se verifica nada. Se comparan solo los dígitos, sin ceros
+ * a la izquierda ("0000000026523697" == "26523697").
+ */
+export function cuentaDestinoAutorizada(aviso: Pick<AvisoParseado, "banco" | "cuentaDestino">, cuentasPropias: string[]): boolean {
+  const propias = cuentasPropias.map(soloDigitosSinCeros).filter(Boolean);
+  if (propias.length === 0 || aviso.banco !== "Itaú") return true;
+  return aviso.cuentaDestino !== null && propias.includes(soloDigitosSinCeros(aviso.cuentaDestino));
 }
 
 /**

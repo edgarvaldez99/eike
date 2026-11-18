@@ -3,7 +3,8 @@ import path from "node:path";
 import sharp from "sharp";
 import { ErrorNegocio } from "@/lib/errores";
 
-const MAX_BYTES = 8 * 1024 * 1024;
+/** Tamaño máximo de un comprobante (imagen o PDF). */
+export const MAX_BYTES = 8 * 1024 * 1024;
 
 /** Carpeta raíz de los archivos subidos (UPLOADS_DIR, o ./.data/uploads en desarrollo). */
 export function directorioUploads(): string {

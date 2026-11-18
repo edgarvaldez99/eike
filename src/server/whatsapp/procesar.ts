@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { and, eq, inArray, isNotNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/cliente";
 import { comprobantesWhatsapp } from "@/db/esquema";
@@ -128,17 +128,33 @@ export async function procesarPayload(payload: unknown, deps: DepsWhatsapp = dep
             estado = "sin_datos";
             problemas.push("no se pudo leer el monto del comprobante");
           }
+          let previosSinConfirmar: number[] = [];
           if (datos.nro) {
-            const repetido = await db
-              .select({ id: comprobantesWhatsapp.id })
+            // Mismo banco Y mismo Nº: el número lo asigna cada banco, así que el mismo
+            // número en bancos distintos no es una repetición.
+            const previos = await db
+              .select({ id: comprobantesWhatsapp.id, estado: comprobantesWhatsapp.estado })
               .from(comprobantesWhatsapp)
               .where(
-                and(eq(comprobantesWhatsapp.nroComprobante, datos.nro), ne(comprobantesWhatsapp.estado, "duplicado")),
-              )
-              .limit(1);
-            if (repetido.length > 0) {
+                and(
+                  eq(comprobantesWhatsapp.nroComprobante, datos.nro),
+                  datos.banco ? eq(comprobantesWhatsapp.banco, datos.banco) : isNull(comprobantesWhatsapp.banco),
+                  ne(comprobantesWhatsapp.estado, "duplicado"),
+                ),
+              );
+            const confirmado = previos.find((p) => p.estado === "confirmado");
+            if (confirmado) {
+              // Ya hay uno que el banco confirmó: este es una repetición.
               estado = "duplicado";
-              problemas.push(`comprobante ${datos.nro} ya recibido antes`);
+              problemas.push(`comprobante ${datos.nro} ya confirmado antes (#${confirmado.id})`);
+            } else if (previos.length > 0) {
+              // El anterior todavía no está confirmado, así que no se sabe cuál es el
+              // real (alguien pudo mandar uno falso con un número ajeno): los dos
+              // quedan observados para que los revise una persona, en vez de dar por
+              // bueno al primero y descartar en silencio al segundo.
+              estado = "observado";
+              problemas.push(`el Nº ${datos.nro} ya lo usó el comprobante #${previos[0].id}, sin confirmar: revisar cuál es el real`);
+              previosSinConfirmar = previos.filter((p) => p.estado === "pendiente_banco").map((p) => p.id);
             }
           }
           if (beneficiarioEsperado && !(datos.beneficiario ?? "").toLowerCase().includes(beneficiarioEsperado)) {
@@ -185,6 +201,15 @@ export async function procesarPayload(payload: unknown, deps: DepsWhatsapp = dep
               ordenId,
             })
             .onConflictDoNothing();
+          if (previosSinConfirmar.length > 0) {
+            await db
+              .update(comprobantesWhatsapp)
+              .set({
+                estado: "observado",
+                problemas: sql`concat_ws(' | ', ${comprobantesWhatsapp.problemas}, ${`el Nº ${datos.nro} se repite en otro comprobante: revisar cuál es el real`}::text)`,
+              })
+              .where(inArray(comprobantesWhatsapp.id, previosSinConfirmar));
+          }
           resumen.procesados += 1;
         } catch (error) {
           resumen.errores += 1;

@@ -18,6 +18,7 @@ function aviso(sobre: Partial<EntradaAviso> & { monto?: number | null; referenci
       fecha: "16/11/2026 19:00:00",
       referencia: sobre.referencia ?? null,
       operacion: sobre.operacion === undefined ? `OP${Math.random()}` : sobre.operacion,
+      cuentaDestino: null,
     },
   };
 }

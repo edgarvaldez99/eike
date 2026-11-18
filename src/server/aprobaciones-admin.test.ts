@@ -92,7 +92,7 @@ describe("listarOrdenesPendientes", () => {
     expect(tipos).toEqual({ [conImagen]: "imagen", [conPdf]: "pdf", [legacy]: "pdf" });
   });
 
-  it("incluye lo recibido por WhatsApp y los avisos del banco asociados a la orden", async () => {
+  it("incluye lo recibido por WhatsApp y los avisos del banco asociados, con qué datos coinciden", async () => {
     const e = await escenario();
     const id = await ordenConTicket(e);
     await db.insert(comprobantesWhatsapp).values({
@@ -100,27 +100,34 @@ describe("listarOrdenesPendientes", () => {
       waFrom: "595981000000",
       estado: "confirmado",
       monto: 50000,
+      pagador: "ANA MARIA PEREZ",
       nroComprobante: "N-1",
       ordenId: id,
     });
-    await db.insert(avisosBanco).values({
-      messageId: "<a@test>",
-      estado: "conciliado",
-      banco: "Itaú",
-      monto: 50000,
-      pagador: "ANA",
-      operacion: "OP-1",
-      ordenId: id,
-    });
+    await db.insert(avisosBanco).values([
+      { messageId: "<a@test>", estado: "conciliado", banco: "Itaú", monto: 50000, pagador: "PEREZ ANA MARIA", operacion: "OP-1", ordenId: id },
+      { messageId: "<b@test>", estado: "ambiguo", banco: "Familiar", monto: 70000, pagador: "OTRA PERSONA", referencia: "nota", ordenId: id },
+    ]);
 
     const [orden] = await listarOrdenesPendientes();
 
     expect(orden.comprobantesWa).toEqual([
-      { id: expect.any(Number), waFrom: "595981000000", monto: 50000, estado: "confirmado", nroComprobante: "N-1" },
+      { id: expect.any(Number), waFrom: "595981000000", monto: 50000, pagador: "ANA MARIA PEREZ", estado: "confirmado", nroComprobante: "N-1" },
     ]);
     expect(orden.avisosBanco).toEqual([
-      { id: expect.any(Number), monto: 50000, pagador: "ANA", operacion: "OP-1", banco: "Itaú" },
+      { id: expect.any(Number), monto: 50000, pagador: "PEREZ ANA MARIA", operacion: "OP-1", referencia: null, banco: "Itaú", coincidencias: ["monto", "pagador"] },
+      { id: expect.any(Number), monto: 70000, pagador: "OTRA PERSONA", operacion: null, referencia: "nota", banco: "Familiar", coincidencias: [] },
     ]);
+  });
+
+  it("sin comprobantes de WhatsApp en la orden, los avisos no tienen coincidencias que mostrar", async () => {
+    const e = await escenario();
+    const id = await ordenConTicket(e);
+    await db.insert(avisosBanco).values({ messageId: "<c@test>", estado: "conciliado", monto: 50000, ordenId: id });
+
+    const [orden] = await listarOrdenesPendientes();
+
+    expect(orden.avisosBanco[0].coincidencias).toEqual([]);
   });
 });
 

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db/cliente";
+import { coincidenciasPago, type CampoCoincidente } from "@/server/conciliacion/coincidencias";
 
 /**
  * Backoffice del superadmin para aprobar compras a mano (/panel/admin/aprobaciones).
@@ -16,6 +17,7 @@ export interface ComprobanteWaResumen {
   id: number;
   waFrom: string;
   monto: number | null;
+  pagador: string | null;
   estado: string;
   nroComprobante: string | null;
 }
@@ -25,7 +27,10 @@ export interface AvisoBancoResumen {
   monto: number | null;
   pagador: string | null;
   operacion: string | null;
+  referencia: string | null;
   banco: string | null;
+  /** Qué datos del aviso coinciden con los comprobantes de WhatsApp de la misma orden (vacío = ninguno, o no hay comprobantes). */
+  coincidencias: CampoCoincidente[];
 }
 
 export interface OrdenParaAprobar {
@@ -69,12 +74,24 @@ type FilaOrden = {
   creado_en: string;
   reservado_hasta: string | null;
   comprobantes_wa: ComprobanteWaResumen[];
-  avisos_banco: AvisoBancoResumen[];
+  avisos_banco: Array<Omit<AvisoBancoResumen, "coincidencias">>;
 };
 
 function tipoComprobante(archivo: string | null): "imagen" | "pdf" | null {
   if (!archivo) return null;
   return archivo.toLowerCase().endsWith(".pdf") ? "pdf" : "imagen";
+}
+
+/** Campos que coinciden entre el aviso y AL MENOS UN comprobante de la orden, sin repetir. */
+function unirCoincidencias(
+  comprobantes: ComprobanteWaResumen[],
+  aviso: Omit<AvisoBancoResumen, "coincidencias">,
+): CampoCoincidente[] {
+  const campos = new Set<CampoCoincidente>();
+  for (const c of comprobantes) {
+    for (const campo of coincidenciasPago(c, aviso)) campos.add(campo);
+  }
+  return [...campos];
 }
 
 function aOrden(f: FilaOrden): OrdenParaAprobar {
@@ -96,7 +113,10 @@ function aOrden(f: FilaOrden): OrdenParaAprobar {
     fechaCompra: new Date(f.creado_en),
     reservadoHasta: f.reservado_hasta ? new Date(f.reservado_hasta) : null,
     comprobantesWa: f.comprobantes_wa,
-    avisosBanco: f.avisos_banco,
+    avisosBanco: f.avisos_banco.map((aviso) => ({
+      ...aviso,
+      coincidencias: unirCoincidencias(f.comprobantes_wa, aviso),
+    })),
   };
 }
 
@@ -120,12 +140,12 @@ async function consultarOrdenes(
              WHERE t.orden_id = o.id ORDER BY t.id LIMIT 1) AS evento_nombre,
            u.nombre AS organizador_nombre,
            (SELECT COALESCE(json_agg(json_build_object(
-                     'id', c.id, 'waFrom', c.wa_from, 'monto', c.monto,
+                     'id', c.id, 'waFrom', c.wa_from, 'monto', c.monto, 'pagador', c.pagador,
                      'estado', c.estado, 'nroComprobante', c.nro_comprobante) ORDER BY c.id), '[]'::json)
               FROM comprobantes_whatsapp c WHERE c.orden_id = o.id) AS comprobantes_wa,
            (SELECT COALESCE(json_agg(json_build_object(
                      'id', a.id, 'monto', a.monto, 'pagador', a.pagador,
-                     'operacion', a.operacion, 'banco', a.banco) ORDER BY a.id), '[]'::json)
+                     'operacion', a.operacion, 'referencia', a.referencia, 'banco', a.banco) ORDER BY a.id), '[]'::json)
               FROM avisos_banco a WHERE a.orden_id = o.id) AS avisos_banco
       FROM ordenes o
       JOIN usuarios u ON u.id = o.organizador_id

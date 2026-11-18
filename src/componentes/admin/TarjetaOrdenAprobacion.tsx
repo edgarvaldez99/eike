@@ -5,6 +5,8 @@ import { Pill } from "@/componentes/ui/Pill";
 import { BotonesAprobacion } from "@/componentes/organizador/BotonesAprobacion";
 import { formatoFecha, formatoGs, formatoVenceEn, linkWhatsapp } from "@/lib/formato";
 
+const ETIQUETA_COINCIDENCIA = { monto: "monto", pagador: "pagador", comprobante: "Nº de comprobante" } as const;
+
 /** Tarjeta de una compra para el backoffice de aprobaciones del superadmin. */
 export function TarjetaOrdenAprobacion({ orden, conAcciones = false }: { orden: OrdenParaAprobar; conAcciones?: boolean }) {
   const vence = conAcciones ? formatoVenceEn(orden.reservadoHasta) : null;
@@ -83,6 +85,13 @@ export function TarjetaOrdenAprobacion({ orden, conAcciones = false }: { orden: 
                     {a.banco ?? "Banco"} · {a.monto === null ? "—" : formatoGs(a.monto)}
                     {a.pagador ? ` · ${a.pagador}` : ""}
                     {a.operacion ? ` · op. ${a.operacion}` : ""}
+                    {orden.comprobantesWa.length > 0 ? (
+                      <span className={a.coincidencias.length > 1 ? "block text-green" : "block text-amarillo-texto"}>
+                        {a.coincidencias.length > 1
+                          ? `Coincide con el comprobante: ${a.coincidencias.map((c) => ETIQUETA_COINCIDENCIA[c]).join(", ")}`
+                          : "Solo coincide el monto, o ni eso: verificá a mano antes de aprobar"}
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
