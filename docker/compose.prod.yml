@@ -41,6 +41,29 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       MANTENIMIENTO_TOKEN: ${MANTENIMIENTO_TOKEN}
       NODE_OPTIONS: --max-old-space-size=384
+      # Conciliación de pagos y correo de compras (ver .env.example). Todas
+      # opcionales: con ${VAR:-} vacío esa función queda sin configurar (el
+      # correo de compras se omite con un aviso en el log) en vez de romper.
+      # CONCILIACION_CUENTAS conviene definirla: sin ella no se verifica la cuenta
+      # destino de los avisos del banco.
+      IMAP_HOST: ${IMAP_HOST:-}
+      IMAP_PORT: ${IMAP_PORT:-}
+      IMAP_USER: ${IMAP_USER:-}
+      IMAP_PASS: ${IMAP_PASS:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      OCR_API_KEY: ${OCR_API_KEY:-}
+      CONCILIACION_REMITENTES: ${CONCILIACION_REMITENTES:-}
+      CONCILIACION_CUENTAS: ${CONCILIACION_CUENTAS:-}
+      CONCILIACION_BENEFICIARIO: ${CONCILIACION_BENEFICIARIO:-}
+      CONCILIACION_DNS_SERVERS: ${CONCILIACION_DNS_SERVERS:-}
     volumes:
       - uploads:/app/uploads
 
