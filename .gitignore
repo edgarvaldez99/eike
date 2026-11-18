@@ -48,4 +48,6 @@ next-env.d.ts
 /.data/
 /uploads/
 /.pnpm-store/
+/.playwright-mcp/
+/docs/
 

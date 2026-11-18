@@ -4,6 +4,8 @@ import { obtenerTicketPorCodigo } from "@/server/tickets";
 import { obtenerNumeroWhatsappPlataforma } from "@/server/cuenta";
 import { generarQrSvg } from "@/lib/qr";
 import { formatoFecha } from "@/lib/formato";
+import { urlCompra } from "@/lib/url-sitio";
+import { buscarComprobantePendiente } from "@/server/comprobante-compra";
 import { Pill } from "@/componentes/ui/Pill";
 import { PILL_ESTADO_TICKET } from "@/lib/estilosEstado";
 import { BotonImprimir } from "@/componentes/publico/BotonImprimir";
@@ -34,6 +36,7 @@ export default async function PaginaTicket({
   const qrSvg = await generarQrSvg(ticket.codigo);
   const mostrarAvisoWhatsapp = ticket.estado === "pendiente" && ticket.precioPagado > 0;
   const numeroWhatsapp = mostrarAvisoWhatsapp ? await obtenerNumeroWhatsappPlataforma() : null;
+  const tieneComprobante = mostrarAvisoWhatsapp && (await buscarComprobantePendiente(ticket.codigo)) !== null;
 
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-4 print:max-w-none">
@@ -91,7 +94,12 @@ export default async function PaginaTicket({
 
       {numeroWhatsapp ? (
         <div className="print:hidden">
-          <AvisoComprobanteWhatsapp numero={numeroWhatsapp} codigo={ticket.codigo} />
+          <AvisoComprobanteWhatsapp
+          numero={numeroWhatsapp}
+          codigo={ticket.codigo}
+          url={urlCompra(ticket.codigo)}
+          urlComprobante={tieneComprobante ? `/api/compras/${ticket.codigo}/comprobante` : null}
+        />
         </div>
       ) : null}
 

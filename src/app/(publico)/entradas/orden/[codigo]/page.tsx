@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { obtenerOrdenParaMostrar } from "@/server/tickets";
 import { obtenerNumeroWhatsappPlataforma } from "@/server/cuenta";
 import { formatoFecha } from "@/lib/formato";
+import { urlCompra } from "@/lib/url-sitio";
+import { buscarComprobantePendiente } from "@/server/comprobante-compra";
 import { AvisoComprobanteWhatsapp } from "@/componentes/publico/AvisoComprobanteWhatsapp";
 import { Icono } from "@/componentes/ui/Icono";
 
@@ -29,6 +31,7 @@ export default async function PaginaOrden({
 
   const mostrarAvisoWhatsapp = orden.estado === "pendiente" && orden.total > 0;
   const numeroWhatsapp = mostrarAvisoWhatsapp ? await obtenerNumeroWhatsappPlataforma() : null;
+  const tieneComprobante = mostrarAvisoWhatsapp && (await buscarComprobantePendiente(orden.codigo)) !== null;
 
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-4">
@@ -66,7 +69,12 @@ export default async function PaginaOrden({
       </div>
 
       {numeroWhatsapp ? (
-        <AvisoComprobanteWhatsapp numero={numeroWhatsapp} codigo={orden.codigo} />
+        <AvisoComprobanteWhatsapp
+          numero={numeroWhatsapp}
+          codigo={orden.codigo}
+          url={urlCompra(orden.codigo)}
+          urlComprobante={tieneComprobante ? `/api/compras/${orden.codigo}/comprobante` : null}
+        />
       ) : null}
     </div>
   );

@@ -18,6 +18,8 @@ import {
 import {
   APROBACION_GRATUITO,
   ESTADOS_ASIENTO,
+  ESTADOS_AVISO_BANCO,
+  ESTADOS_COMPROBANTE_WA,
   ESTADOS_CARRITO,
   ESTADOS_EVENTO,
   ESTADOS_LIQUIDACION,
@@ -37,6 +39,8 @@ import {
   TIPOS_PREMIO,
   TIPOS_TANDA,
   type AprobacionGratuito,
+  type EstadoAvisoBanco,
+  type EstadoComprobanteWa,
   type EstadoAsiento,
   type EstadoCarrito,
   type EstadoEvento,
@@ -865,6 +869,98 @@ export const pagos = pgTable(
     check("chk_pagos_monto_no_negativo", sql`${t.monto} >= 0`),
     checkEnum("chk_pagos_metodo", t.metodo, METODOS_PAGO),
     checkEnum("chk_pagos_estado", t.estado, ESTADOS_PAGO),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// avisos_banco — correos de "transferencia recibida" que manda el banco al
+// buzón de pagos (IMAP, ver server/conciliacion/). Es el segundo check de la
+// conciliación (docs de ticketapi: 08-pagos-y-whatsapp.md, Nivel 2): la
+// confirmación real de que la plata entró. message_id y (banco, operacion)
+// son únicos para que reprocesar el buzón o recibir copias reenviadas no
+// duplique avisos.
+// ---------------------------------------------------------------------------
+export const avisosBanco = pgTable(
+  "avisos_banco",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    messageId: varchar("message_id", { length: 255 }).notNull(),
+    remitente: varchar("remitente", { length: 255 }),
+    // true si el servidor de correo marcó dkim=pass en Authentication-Results.
+    autenticado: boolean("autenticado").notNull().default(false),
+    banco: varchar("banco", { length: 30 }),
+    monto: bigint("monto", { mode: "number" }),
+    pagador: varchar("pagador", { length: 200 }),
+    operacion: varchar("operacion", { length: 80 }),
+    referencia: varchar("referencia", { length: 255 }),
+    fechaOperacion: varchar("fecha_operacion", { length: 40 }),
+    estado: text("estado").notNull().$type<EstadoAvisoBanco>(),
+    ordenId: bigint("orden_id", { mode: "number" }),
+    recibidoEn: timestamp("recibido_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_avisos_banco_message_id").on(t.messageId),
+    uniqueIndex("uq_avisos_banco_operacion")
+      .on(t.banco, t.operacion)
+      .where(sql`${t.operacion} is not null`),
+    index("idx_avisos_banco_orden").on(t.ordenId),
+    foreignKey({
+      name: "fk_avisos_banco_orden",
+      columns: [t.ordenId],
+      foreignColumns: [ordenes.id],
+    }).onDelete("set null"),
+    checkEnum("chk_avisos_banco_estado", t.estado, ESTADOS_AVISO_BANCO),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// comprobantes_whatsapp — comprobantes de transferencia que el comprador
+// manda al número de WhatsApp de la plataforma (Cloud API, ver
+// server/whatsapp/). Es el primer check de la conciliación (OCR + pre-check);
+// al cruzar con un aviso del banco (avisos_banco) por el mismo monto, pasa a
+// 'confirmado' = doble check. wa_message_id es único para que los reintentos
+// del webhook de Meta no dupliquen comprobantes.
+// ---------------------------------------------------------------------------
+export const comprobantesWhatsapp = pgTable(
+  "comprobantes_whatsapp",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    waMessageId: varchar("wa_message_id", { length: 120 }).notNull(),
+    waFrom: varchar("wa_from", { length: 30 }).notNull(),
+    nombrePerfil: varchar("nombre_perfil", { length: 150 }),
+    caption: varchar("caption", { length: 500 }),
+    archivo: varchar("archivo", { length: 255 }),
+    textoOcr: text("texto_ocr"),
+    banco: varchar("banco", { length: 30 }),
+    monto: bigint("monto", { mode: "number" }),
+    nroComprobante: varchar("nro_comprobante", { length: 80 }),
+    concepto: varchar("concepto", { length: 255 }),
+    pagador: varchar("pagador", { length: 255 }),
+    beneficiario: varchar("beneficiario", { length: 400 }),
+    estado: text("estado").notNull().$type<EstadoComprobanteWa>(),
+    problemas: text("problemas"),
+    ordenId: bigint("orden_id", { mode: "number" }),
+    avisoId: bigint("aviso_id", { mode: "number" }),
+    recibidoEn: timestamp("recibido_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_comprobantes_wa_message_id").on(t.waMessageId),
+    index("idx_comprobantes_wa_nro").on(t.nroComprobante),
+    index("idx_comprobantes_wa_pendientes")
+      .on(t.monto)
+      .where(sql`${t.estado} = 'pendiente_banco'`),
+    index("idx_comprobantes_wa_orden").on(t.ordenId),
+    foreignKey({
+      name: "fk_comprobantes_wa_orden",
+      columns: [t.ordenId],
+      foreignColumns: [ordenes.id],
+    }).onDelete("set null"),
+    foreignKey({
+      name: "fk_comprobantes_wa_aviso",
+      columns: [t.avisoId],
+      foreignColumns: [avisosBanco.id],
+    }).onDelete("set null"),
+    checkEnum("chk_comprobantes_wa_estado", t.estado, ESTADOS_COMPROBANTE_WA),
   ],
 );
 

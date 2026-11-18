@@ -4,6 +4,7 @@ import { obtenerEventoConTandas } from "@/server/eventos";
 import { obtenerPendientes } from "@/server/tickets";
 import { Card } from "@/componentes/ui/Card";
 import { Icono } from "@/componentes/ui/Icono";
+import { Pill } from "@/componentes/ui/Pill";
 import { formatoFecha, formatoGs, formatoVenceEn } from "@/lib/formato";
 import { BotonesAprobacion } from "@/componentes/organizador/BotonesAprobacion";
 
@@ -53,7 +54,18 @@ export default async function PaginaAprobaciones({
               ) : (
                 pendientes.map((t) => (
                   <tr key={t.id}>
-                    <td>{t.nombreComprador}</td>
+                    <td>
+                      {t.nombreComprador}
+                      {t.verificacionPago === "doble_check" ? (
+                        <div className="mt-1">
+                          <Pill variante="ok">Doble check: comprobante + banco</Pill>
+                        </div>
+                      ) : t.verificacionPago === "banco" ? (
+                        <div className="mt-1">
+                          <Pill variante="info">El banco confirmó el monto</Pill>
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="num text-muted">{t.cedula ?? "—"}</td>
                     <td>{t.tandaNombre}</td>
                     <td className="num right">{formatoGs(t.total)}</td>

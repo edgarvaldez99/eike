@@ -1,12 +1,9 @@
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import path from "node:path";
-import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { ordenes, tickets } from "@/db/esquema";
 import { usuarioActual } from "@/lib/auth/sesion";
+import { respuestaComprobante } from "@/lib/archivos/comprobante-http";
 
 /**
  * Puerto de api/comprobante_ver.php, con dos mejoras deliberadas (ver plan
@@ -25,14 +22,6 @@ import { usuarioActual } from "@/lib/auth/sesion";
  * no tienen archivo propio — el archivo de esos tickets viejos se quedó
  * donde estaba, y acá se cae a leerlo de ahí (COALESCE).
  */
-
-const NOMBRE_VALIDO = /^(EIK|ORD)-[A-F0-9]{12}\.(jpg|png|webp|pdf)$/;
-const MIME: Record<string, string> = {
-  ".jpg": "image/jpeg",
-  ".png": "image/png",
-  ".webp": "image/webp",
-  ".pdf": "application/pdf",
-};
 
 export async function GET(_req: Request, { params }: { params: Promise<{ ordenId: string }> }) {
   const usuario = await usuarioActual();
@@ -80,25 +69,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ ordenId
     nombreArchivo = ticketLegacy?.comprobanteArchivo ?? null;
   }
 
-  if (!nombreArchivo || !NOMBRE_VALIDO.test(nombreArchivo)) {
-    return NextResponse.json({ error: "No encontrado." }, { status: 404 });
-  }
-
-  const extension = path.extname(nombreArchivo).toLowerCase();
-  const ruta = path.join(process.env.UPLOADS_DIR || "./.data/uploads", "comprobantes", nombreArchivo);
-
-  try {
-    const info = await stat(ruta);
-    return new NextResponse(Readable.toWeb(createReadStream(ruta)) as ReadableStream, {
-      headers: {
-        "Content-Type": MIME[extension] ?? "application/octet-stream",
-        "Content-Length": String(info.size),
-        "Content-Disposition": `inline; filename="comprobante-${id}${extension}"`,
-        "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: "No encontrado." }, { status: 404 });
-  }
+  return respuestaComprobante(nombreArchivo, `comprobante-${id}`);
 }

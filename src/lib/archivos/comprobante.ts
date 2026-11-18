@@ -5,7 +5,8 @@ import { ErrorNegocio } from "@/lib/errores";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
-function directorioUploads(): string {
+/** Carpeta raíz de los archivos subidos (UPLOADS_DIR, o ./.data/uploads en desarrollo). */
+export function directorioUploads(): string {
   return process.env.UPLOADS_DIR || "./.data/uploads";
 }
 

@@ -35,6 +35,7 @@ export default async function LayoutAdmin({ children }: { children: React.ReactN
 
       <NavTabs
         items={[
+          { href: "/panel/admin/aprobaciones", etiqueta: "Aprobaciones" },
           { href: "/panel/admin", etiqueta: "Organizadores" },
           { href: "/panel/admin/eventos", etiqueta: "Eventos" },
           { href: "/panel/admin/liquidaciones", etiqueta: "Liquidaciones" },

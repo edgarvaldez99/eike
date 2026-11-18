@@ -73,6 +73,7 @@ export const solicitarAprobacionEventoAction = accionSegura({
     revalidatePath(`/panel/organizador/eventos/${datos.id}`);
     revalidatePath("/panel/organizador");
     revalidatePath("/panel/admin/eventos");
+    revalidatePath("/panel/admin/aprobaciones", "layout");
   },
 });
 
@@ -85,6 +86,7 @@ export const aprobarEventoAction = accionSegura({
     revalidatePath(`/panel/organizador/eventos/${datos.id}`);
     revalidatePath("/panel/organizador");
     revalidatePath("/panel/admin/eventos");
+    revalidatePath("/panel/admin/aprobaciones", "layout");
     // Recién ahora el evento existe para el comprador — mismo bug de ISR
     // que ya se arregló acá antes (cuando esto era publicarEventoAction):
     // sin esto no aparece en el storefront hasta que venza el ISR.
@@ -102,5 +104,6 @@ export const rechazarEventoAction = accionSegura({
     revalidatePath(`/panel/organizador/eventos/${datos.id}`);
     revalidatePath("/panel/organizador");
     revalidatePath("/panel/admin/eventos");
+    revalidatePath("/panel/admin/aprobaciones", "layout");
   },
 });

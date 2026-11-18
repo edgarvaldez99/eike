@@ -85,6 +85,20 @@
       "when": 1791601781635,
       "tag": "0011_direccion_evento",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794868915493,
+      "tag": "0012_avisos_banco",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794870790736,
+      "tag": "0013_comprobantes_whatsapp",
+      "breakpoints": true
     }
   ]
 }

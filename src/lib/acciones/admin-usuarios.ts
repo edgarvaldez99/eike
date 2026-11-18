@@ -15,6 +15,7 @@ export const aprobarOrganizadorAction = accionSegura({
   ejecutar: async (datos) => {
     await servidorUsuarios.aprobarOrganizador(datos.id);
     revalidatePath("/panel/admin");
+    revalidatePath("/panel/admin/aprobaciones", "layout");
   },
 });
 
@@ -24,6 +25,7 @@ export const rechazarOrganizadorAction = accionSegura({
   ejecutar: async (datos) => {
     await servidorUsuarios.rechazarOrganizador(datos.id, datos.motivo);
     revalidatePath("/panel/admin");
+    revalidatePath("/panel/admin/aprobaciones", "layout");
   },
 });
 
@@ -37,6 +39,7 @@ export const editarOrganizadorAction = accionSegura({
       rucFacturacion: datos.ruc_facturacion,
     });
     revalidatePath("/panel/admin");
+    revalidatePath("/panel/admin/aprobaciones", "layout");
   },
 });
 
@@ -46,6 +49,7 @@ export const inactivarOrganizadorAction = accionSegura({
   ejecutar: async (datos) => {
     await servidorUsuarios.inactivarOrganizador(datos.id);
     revalidatePath("/panel/admin");
+    revalidatePath("/panel/admin/aprobaciones", "layout");
   },
 });
 
@@ -55,5 +59,6 @@ export const reactivarOrganizadorAction = accionSegura({
   ejecutar: async (datos) => {
     await servidorUsuarios.reactivarOrganizador(datos.id);
     revalidatePath("/panel/admin");
+    revalidatePath("/panel/admin/aprobaciones", "layout");
   },
 });

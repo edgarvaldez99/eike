@@ -4,10 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
-export function NavTabs({ items }: { items: { href: string; etiqueta: string }[] }) {
+export function NavTabs({
+  items,
+  etiquetaAria = "Secciones",
+}: {
+  items: { href: string; etiqueta: string }[];
+  etiquetaAria?: string;
+}) {
   const pathname = usePathname();
   return (
-    <nav aria-label="Secciones" className="eike-nav">
+    <nav aria-label={etiquetaAria} className="eike-nav">
       {items.map((item) => {
         const activa = pathname === item.href;
         return (

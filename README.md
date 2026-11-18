@@ -17,7 +17,7 @@ pnpm db:generate && pnpm db:migrate
 pnpm dev                      # http://localhost:3000
 ```
 
-Adminer (administrador de la base) queda en `http://localhost:8082`
+Adminer (administrador de la base) queda en `http://localhost:8092`
 (sistema: PostgreSQL, servidor: `db`, usuario/clave: `eike` / `eike_local`).
 
 ## Stack

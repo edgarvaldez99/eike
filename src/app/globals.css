@@ -311,6 +311,40 @@ th.num {
     border-radius: var(--radius-eike);
   }
 
+  /* Acordeón (<details>) para agrupar listas largas, ej. compras por evento. */
+  .eike-acordeon-resumen {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    padding: 10px 16px;
+    cursor: pointer;
+    list-style: none;
+    border-radius: var(--radius-eike);
+  }
+  .eike-acordeon-resumen::-webkit-details-marker {
+    display: none;
+  }
+  .eike-acordeon-resumen::before {
+    content: "";
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--color-muted);
+    border-bottom: 2px solid var(--color-muted);
+    transform: rotate(-45deg);
+  }
+  .eike-acordeon[open] > .eike-acordeon-resumen::before {
+    transform: rotate(45deg);
+  }
+  .eike-acordeon-resumen:hover {
+    background: var(--color-surface-2);
+  }
+  .eike-acordeon-resumen:focus-visible {
+    outline: 2px solid var(--color-lila-bright);
+    outline-offset: -2px;
+  }
+
   /* Tarjeta con muesca de "ticket" (manual de marca): mask con
      radial-gradient en vez de clip-path: path(...) a propósito — la
      posición "50% 0" es un porcentaje y se recentra solo si el ancho de la

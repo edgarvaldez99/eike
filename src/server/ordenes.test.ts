@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/cliente";
-import { asientos, ordenes, tickets } from "@/db/esquema";
+import { asientos, comprobantesWhatsapp, ordenes, tickets } from "@/db/esquema";
+import { registrarAviso } from "@/server/conciliacion/avisos";
+import { cruzarComprobantesConAvisos } from "@/server/conciliacion/cruce";
 import { aprobarOrden, obtenerOrdenPendientePropia, obtenerPendientes } from "@/server/tickets";
 import { ErrorNegocio } from "@/lib/errores";
 import { crearAsiento, crearEvento, crearOrden, crearTanda, crearTicket, crearUsuario } from "@/test/fixtures";
@@ -111,5 +113,26 @@ describe("obtenerPendientes", () => {
     const pendientes = await obtenerPendientes(comoSesion(superadminId, "superadmin"));
 
     expect(pendientes).toHaveLength(2);
+  });
+
+  it("marca la verificación de pago: sin confirmar → null, aviso del banco → 'banco', comprobante + aviso → 'doble_check'", async () => {
+    const { organizadorId, ordenId } = await armarOrdenNumeradaPendiente();
+    const sesion = comoSesion(organizadorId, "organizador");
+    expect((await obtenerPendientes(sesion))[0].verificacionPago).toBeNull();
+
+    await registrarAviso({
+      messageId: "<v@test>",
+      remitente: "info@itau.com.py",
+      autenticado: true,
+      sospechoso: false,
+      datos: { banco: "Itaú", monto: 50000, pagador: "X", fecha: null, referencia: null, operacion: "OP-V" },
+    });
+    expect((await obtenerPendientes(sesion))[0].verificacionPago).toBe("banco");
+
+    await db
+      .insert(comprobantesWhatsapp)
+      .values({ waMessageId: "wamid.v", waFrom: "595991258700", estado: "pendiente_banco", monto: 50000, ordenId });
+    await cruzarComprobantesConAvisos();
+    expect((await obtenerPendientes(sesion))[0].verificacionPago).toBe("doble_check");
   });
 });

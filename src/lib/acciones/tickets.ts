@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { esquemaAprobarRechazarOrden, esquemaCrearCortesia } from "@/lib/validaciones/tickets";
 import * as servidorTickets from "@/server/tickets";
+import { notificarResultadoCompra } from "@/server/notificaciones/compra";
 import { accionSegura } from "./marco";
 
 export const aprobarOrdenAction = accionSegura({
@@ -12,6 +13,8 @@ export const aprobarOrdenAction = accionSegura({
     const orden = await servidorTickets.obtenerOrdenPendientePropia(datos.id, usuario);
     const eventosIds = await servidorTickets.aprobarOrden(orden, usuario);
     for (const eventoId of eventosIds) revalidatePath(`/panel/organizador/eventos/${eventoId}`);
+    revalidatePath("/panel/admin/aprobaciones", "layout");
+    await notificarResultadoCompra(orden, "aprobada");
   },
 });
 
@@ -22,6 +25,8 @@ export const rechazarOrdenAction = accionSegura({
     const orden = await servidorTickets.obtenerOrdenPendientePropia(datos.id, usuario);
     const eventosIds = await servidorTickets.rechazarOrden(orden);
     for (const eventoId of eventosIds) revalidatePath(`/panel/organizador/eventos/${eventoId}`);
+    revalidatePath("/panel/admin/aprobaciones", "layout");
+    await notificarResultadoCompra(orden, "rechazada");
   },
 });
 

@@ -97,6 +97,22 @@ export const MINUTOS_CARRITO_MAXIMO = 60;
 export const TIPOS_ALIAS_BANCARIO = ["ruc", "cedula", "telefono", "correo"] as const;
 export type TipoAliasBancario = (typeof TIPOS_ALIAS_BANCARIO)[number];
 
+// Aviso de "transferencia recibida" que manda el banco por correo (ver
+// server/conciliacion/). conciliado = cruzó con UNA orden pendiente;
+// sin_cruzar = ninguna orden pendiente por ese monto; ambiguo = varias
+// órdenes por el mismo monto y ninguna con su código en el concepto;
+// descartado = remitente no autorizado o correo que no es un aviso.
+export const ESTADOS_AVISO_BANCO = ["conciliado", "sin_cruzar", "ambiguo", "descartado"] as const;
+export type EstadoAvisoBanco = (typeof ESTADOS_AVISO_BANCO)[number];
+
+// Comprobante que el comprador manda por WhatsApp (primer check). pendiente_banco
+// = pasó el pre-check y espera el aviso del banco; confirmado = además llegó el
+// aviso del banco por el mismo monto (doble check); observado = el pre-check
+// encontró algo raro (ver problemas); duplicado = ya se recibió ese Nº de
+// comprobante; sin_datos = el OCR no pudo leer un monto.
+export const ESTADOS_COMPROBANTE_WA = ["pendiente_banco", "confirmado", "observado", "duplicado", "sin_datos"] as const;
+export type EstadoComprobanteWa = (typeof ESTADOS_COMPROBANTE_WA)[number];
+
 export const METODOS_PAGO = ["transferencia", "tarjeta", "billetera"] as const;
 export type MetodoPago = (typeof METODOS_PAGO)[number];
 

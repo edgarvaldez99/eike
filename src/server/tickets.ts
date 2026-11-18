@@ -198,6 +198,10 @@ export interface OrdenPendiente {
   tandaNombre: string;
   cantidadTickets: number;
   total: number;
+  /** Conciliación automática (server/conciliacion/): "doble_check" = comprobante
+   * por WhatsApp Y aviso del banco por el mismo monto; "banco" = solo llegó el
+   * aviso del banco; null = todavía sin confirmación automática. */
+  verificacionPago: "doble_check" | "banco" | null;
 }
 
 /** Puerto de tickets.php?accion=listar_pendientes, adaptado a la Fase 5: la
@@ -219,10 +223,14 @@ export async function obtenerPendientes(
     tanda_nombre: string;
     cantidad_tickets: number;
     total: number;
+    doble_check: boolean;
+    aviso_banco: boolean;
   }>(sql`
     SELECT o.id, o.codigo, o.nombre_comprador, o.cedula, o.email, o.creado_en AS fecha_compra,
            o.reservado_hasta, o.cantidad_tickets, o.total,
-           e.nombre AS evento_nombre, td.nombre AS tanda_nombre
+           e.nombre AS evento_nombre, td.nombre AS tanda_nombre,
+           EXISTS (SELECT 1 FROM comprobantes_whatsapp c WHERE c.orden_id = o.id AND c.estado = 'confirmado') AS doble_check,
+           EXISTS (SELECT 1 FROM avisos_banco a WHERE a.orden_id = o.id AND a.estado = 'conciliado') AS aviso_banco
       FROM ordenes o
       JOIN tickets tk ON tk.orden_id = o.id
       JOIN eventos e ON e.id = tk.evento_id
@@ -243,6 +251,7 @@ export async function obtenerPendientes(
     tandaNombre: f.tanda_nombre,
     cantidadTickets: Number(f.cantidad_tickets),
     total: Number(f.total),
+    verificacionPago: f.doble_check ? "doble_check" : f.aviso_banco ? "banco" : null,
   }));
 }
 
