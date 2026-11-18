@@ -67,9 +67,10 @@ services:
     volumes:
       - uploads:/app/uploads
 
-  # Barrido de reservas vencidas (Fase 3 del plan de mejoras). Un loop de
-  # shell y no un cron daemon a propósito: un contenedor menos pesado en una
-  # VM de 1 GB de RAM, y no hay nada más que programar acá todavía.
+  # Tareas periódicas: barrido de reservas vencidas (Fase 3 del plan de
+  # mejoras) y lectura del buzón de pagos para conciliar avisos del banco.
+  # Un loop de shell y no un cron daemon a propósito: un contenedor menos
+  # pesado en una VM de 1 GB de RAM.
   sweeper:
     image: curlimages/curl:8.11.1
     restart: unless-stopped
@@ -81,6 +82,7 @@ services:
       /bin/sh -c '
         while true; do
           curl -fsS -X POST -H "Authorization: Bearer $$MANTENIMIENTO_TOKEN" http://web:3000/api/mantenimiento/barrer || true;
+          curl -fsS --max-time 50 -X POST -H "Authorization: Bearer $$MANTENIMIENTO_TOKEN" http://web:3000/api/mantenimiento/conciliar || true;
           sleep 60;
         done
       '
