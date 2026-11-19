@@ -93,3 +93,20 @@ export async function obtenerNumeroWhatsappPlataforma(): Promise<string | null> 
     .limit(1);
   return fila?.numeroWhatsapp ?? null;
 }
+
+/**
+ * Alias bancario de la plataforma para el checkout: el del primer superadmin
+ * que lo tenga cargado. null si ninguno lo cargó — en ese caso el checkout
+ * deja la transferencia como no disponible.
+ */
+export async function obtenerAliasBancarioPlataforma(): Promise<DatosAliasBancario | null> {
+  const [fila] = await db
+    .select({ tipo: usuarios.aliasBancarioTipo, valor: usuarios.aliasBancarioValor })
+    .from(usuarios)
+    .where(
+      and(eq(usuarios.rol, "superadmin"), isNotNull(usuarios.aliasBancarioTipo), isNotNull(usuarios.aliasBancarioValor)),
+    )
+    .orderBy(usuarios.id)
+    .limit(1);
+  return fila?.tipo && fila.valor ? { tipo: fila.tipo, valor: fila.valor } : null;
+}

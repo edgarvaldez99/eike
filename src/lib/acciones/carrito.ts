@@ -16,6 +16,7 @@ import {
   vincularCarritoAUsuario,
 } from "@/server/carrito";
 import { previsualizarCuponCarrito } from "@/server/cupones";
+import { exigirContactoConfirmado } from "@/lib/telefono";
 import { prepararComprobante } from "@/lib/archivos/comprobante";
 import { ipCliente, limitar } from "@/lib/rateLimit";
 import { ErrorNegocio } from "@/lib/errores";
@@ -160,6 +161,8 @@ export const checkoutCarritoAction = accionPublica({
       throw new ErrorNegocio("Hay que aceptar los Términos y Condiciones / Política de Privacidad.");
     }
 
+    const contactoConfirmado = exigirContactoConfirmado(datos.contacto, datos.contacto_confirmacion);
+
     const archivoCrudo = fd?.get("comprobante");
     const tieneArchivo = archivoCrudo instanceof File && archivoCrudo.size > 0;
     const comprobante = tieneArchivo ? await prepararComprobante(archivoCrudo as File) : null;
@@ -173,7 +176,7 @@ export const checkoutCarritoAction = accionPublica({
       nombreComprador: datos.nombre_comprador,
       cedula: datos.cedula,
       email: datos.email,
-      contacto: datos.contacto,
+      contacto: contactoConfirmado,
       comprobanteTexto: datos.comprobante_texto,
       comprobante,
       codigoCupon: datos.codigo_cupon,

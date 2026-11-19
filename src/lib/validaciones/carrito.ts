@@ -32,6 +32,7 @@ export const esquemaCheckoutCarrito = z.object({
   cedula: zTextoOpcional(),
   email: z.email("Ese email no parece válido."),
   contacto: zTextoOpcional(),
+  contacto_confirmacion: zTextoOpcional(),
   tyc_aceptado: zCasilla(),
   comprobante_texto: zTextoOpcional(),
   codigo_cupon: zTextoOpcional(),

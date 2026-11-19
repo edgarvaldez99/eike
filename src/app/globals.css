@@ -544,7 +544,7 @@ th.num {
     color: var(--color-text);
     flex: none;
   }
-  .eike-footer-social:hover {
+  a.eike-footer-social:hover {
     border-color: var(--color-lila-bright);
     color: var(--color-lila-bright);
   }

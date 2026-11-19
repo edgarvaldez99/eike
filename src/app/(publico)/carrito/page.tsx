@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { leerTokenCarrito } from "@/lib/carrito/cookie";
 import { obtenerCarritoUtilizablePorToken, obtenerResumenCarrito } from "@/server/carrito";
 import { usuarioActual } from "@/lib/auth/sesion";
+import { obtenerAliasBancarioPlataforma } from "@/server/cuenta";
 import { Card } from "@/componentes/ui/Card";
 import { Icono } from "@/componentes/ui/Icono";
 import { formatoGs } from "@/lib/formato";
@@ -57,7 +58,11 @@ export default async function PaginaCarrito() {
       </div>
 
       <Card className="border-2 border-lila sm:p-8">
-        <FormularioCheckoutCarrito subtotal={resumen.subtotal} usuario={compradorSesion} />
+        <FormularioCheckoutCarrito
+          subtotal={resumen.subtotal}
+          usuario={compradorSesion}
+          aliasPago={await obtenerAliasBancarioPlataforma()}
+        />
       </Card>
     </div>
   );

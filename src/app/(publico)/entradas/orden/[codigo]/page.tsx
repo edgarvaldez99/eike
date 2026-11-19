@@ -35,6 +35,15 @@ export default async function PaginaOrden({
 
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-4">
+      {mostrarAvisoWhatsapp ? (
+        <div role="status" className="eike-card border-2 border-lila p-5 text-center">
+          <h2 className="text-[17px] font-extrabold">¡Hemos recibido tu pedido!</h2>
+          <p className="mt-1 text-[13px] text-muted">
+            Estamos verificando tu pago. Te avisaremos por WhatsApp apenas confirmemos tu pedido.
+          </p>
+        </div>
+      ) : null}
+
       <div className="eike-card p-6 text-center">
         <h1 className="text-lg font-extrabold">{orden.eventoNombre}</h1>
         <p className="text-[13px] text-muted">{formatoFecha(orden.fechaEvento)}</p>

@@ -95,16 +95,17 @@ export default async function LayoutPublico({ children }: { children: React.Reac
             <a href="mailto:info@eike.com.py" className="text-[13px] text-muted hover:text-text">
               info@eike.com.py
             </a>
+            {/* Íconos sin link: todavía no hay perfiles de redes. Al tenerlos, volver a <a href=...>. */}
             <div className="flex gap-2">
-              <a href="#" aria-label="Eike en Facebook" className="eike-footer-social">
+              <span role="img" aria-label="Eike en Facebook" className="eike-footer-social">
                 <Icono nombre="facebook" />
-              </a>
-              <a href="#" aria-label="Eike en X" className="eike-footer-social">
+              </span>
+              <span role="img" aria-label="Eike en X" className="eike-footer-social">
                 <Icono nombre="x" />
-              </a>
-              <a href="#" aria-label="Eike en Instagram" className="eike-footer-social">
+              </span>
+              <span role="img" aria-label="Eike en Instagram" className="eike-footer-social">
                 <Icono nombre="instagram" />
-              </a>
+              </span>
             </div>
             <p className="text-[12px] text-muted-dim">eike Copyright 2026. Todos los derechos reservados</p>
           </div>

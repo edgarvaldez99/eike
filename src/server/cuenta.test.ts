@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { usuarios } from "@/db/esquema";
-import { cambiarPasswordPropio, editarAliasBancario, editarPerfilPropio } from "@/server/cuenta";
+import {
+  cambiarPasswordPropio,
+  editarAliasBancario,
+  editarPerfilPropio,
+  obtenerAliasBancarioPlataforma,
+} from "@/server/cuenta";
 import { hashearPassword, verificarPassword } from "@/lib/auth/password";
 import { ErrorNegocio } from "@/lib/errores";
 import { crearUsuario } from "@/test/fixtures";
@@ -87,6 +92,19 @@ describe("editarAliasBancario", () => {
 
 // Cordura del hasheo usado por cambiarPasswordPropio — ya cubierto en otro
 // lado, pero un smoke test acá no está de más dado lo sensible del flujo.
+describe("obtenerAliasBancarioPlataforma", () => {
+  it("devuelve null si ningún superadmin cargó el alias", async () => {
+    await crearUsuario({ rol: "superadmin" });
+    expect(await obtenerAliasBancarioPlataforma()).toBeNull();
+  });
+
+  it("devuelve el alias del superadmin que lo cargó", async () => {
+    const id = await crearUsuario({ rol: "superadmin" });
+    await editarAliasBancario(id, { tipo: "ruc", valor: "80012345-6" });
+    expect(await obtenerAliasBancarioPlataforma()).toEqual({ tipo: "ruc", valor: "80012345-6" });
+  });
+});
+
 describe("hashearPassword/verificarPassword (smoke)", () => {
   it("un hash nuevo verifica contra su propio texto plano", async () => {
     const hash = await hashearPassword("UnaPassword1");

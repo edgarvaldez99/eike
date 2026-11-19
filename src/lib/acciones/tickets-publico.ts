@@ -9,6 +9,7 @@ import { prepararComprobante } from "@/lib/archivos/comprobante";
 import { ipCliente, limitar } from "@/lib/rateLimit";
 import { comprarTicket } from "@/server/tickets";
 import { previsualizarCupon } from "@/server/cupones";
+import { exigirContactoConfirmado } from "@/lib/telefono";
 import { ErrorNegocio } from "@/lib/errores";
 import { mensajeAmigablePg } from "@/lib/errores-pg";
 import type { ResultadoAccion } from "./marco";
@@ -41,6 +42,7 @@ export async function comprarTicketAction(
     cedula: fd.get("cedula"),
     email: fd.get("email"),
     contacto: fd.get("contacto"),
+    contacto_confirmacion: fd.get("contacto_confirmacion"),
     asiento_id: fd.get("asiento_id"),
     tyc_aceptado: fd.get("tyc_aceptado"),
     comprobante_texto: fd.get("comprobante_texto"),
@@ -63,6 +65,14 @@ export async function comprarTicketAction(
     };
   }
 
+  let contactoConfirmado: string;
+  try {
+    contactoConfirmado = exigirContactoConfirmado(parseo.data.contacto, parseo.data.contacto_confirmacion);
+  } catch (error) {
+    if (error instanceof ErrorNegocio) return { ok: false, error: error.message };
+    throw error;
+  }
+
   const archivoCrudo = fd.get("comprobante");
   const tieneArchivo = archivoCrudo instanceof File && archivoCrudo.size > 0;
   // Fase 8: la atribución de referido viaja en una cookie de solo lectura
@@ -79,7 +89,7 @@ export async function comprarTicketAction(
       nombreComprador: parseo.data.nombre_comprador,
       cedula: parseo.data.cedula,
       email: parseo.data.email,
-      contacto: parseo.data.contacto,
+      contacto: contactoConfirmado,
       asientoId: parseo.data.asiento_id ?? null,
       comprobanteTexto: parseo.data.comprobante_texto,
       comprobante,

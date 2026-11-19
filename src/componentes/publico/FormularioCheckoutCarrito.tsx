@@ -5,8 +5,11 @@ import { checkoutCarritoAction } from "@/lib/acciones/carrito";
 import { Boton } from "@/componentes/ui/Boton";
 import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoImagen } from "@/componentes/ui/CampoImagen";
+import { CampoWhatsappConfirmado } from "@/componentes/publico/CampoWhatsappConfirmado";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { CampoCuponCarrito, type CuponCarritoAplicado } from "@/componentes/publico/CampoCuponCarrito";
+import { MetodosPago } from "@/componentes/publico/MetodosPago";
+import type { DatosAliasBancario } from "@/server/cuenta";
 import { formatoGs } from "@/lib/formato";
 import { errorCampo, mensajeError } from "@/lib/estado-formulario";
 import type { UsuarioSesion } from "@/lib/auth/sesion";
@@ -20,14 +23,18 @@ import type { UsuarioSesion } from "@/lib/auth/sesion";
 export function FormularioCheckoutCarrito({
   subtotal,
   usuario,
+  aliasPago,
 }: {
   subtotal: number;
   usuario: UsuarioSesion | null;
+  aliasPago: DatosAliasBancario | null;
 }) {
   const [estado, accion, pendiente] = useActionState(checkoutCarritoAction, null);
   const [cupon, setCupon] = useState<CuponCarritoAplicado | null>(null);
   const total = cupon ? cupon.total : subtotal;
   const esGratis = total <= 0;
+  // Sin alias cargado por el superadmin no hay forma de pagar: no se deja confirmar un pedido con costo.
+  const sinMetodoDePago = !esGratis && aliasPago === null;
 
   return (
     <form action={accion} encType="multipart/form-data" className="flex flex-col gap-6">
@@ -42,14 +49,6 @@ export function FormularioCheckoutCarrito({
         error={errorCampo(estado, "nombre_comprador")}
       />
       <CampoTexto
-        etiqueta="Cédula"
-        name="cedula"
-        inputMode="numeric"
-        autoComplete="off"
-        spellCheck={false}
-        defaultValue={usuario?.cedula ?? ""}
-      />
-      <CampoTexto
         etiqueta="Email"
         type="email"
         name="email"
@@ -59,13 +58,9 @@ export function FormularioCheckoutCarrito({
         defaultValue={usuario?.email ?? ""}
         error={errorCampo(estado, "email")}
       />
-      <CampoTexto
-        etiqueta="Teléfono / WhatsApp"
-        name="contacto"
-        type="tel"
-        inputMode="tel"
-        autoComplete="tel"
-        defaultValue={usuario?.telefono ?? ""}
+      <CampoWhatsappConfirmado
+        valorInicial={usuario?.telefono ?? ""}
+        error={errorCampo(estado, "contacto")}
       />
 
       {subtotal > 0 ? <CampoCuponCarrito onResultado={setCupon} /> : null}
@@ -81,6 +76,7 @@ export function FormularioCheckoutCarrito({
         </p>
       ) : (
         <>
+          <MetodosPago alias={aliasPago} />
           <CampoTexto
             etiqueta="Nº de comprobante (opcional)"
             name="comprobante_texto"
@@ -100,8 +96,8 @@ export function FormularioCheckoutCarrito({
 
       <AvisoError mensaje={mensajeError(estado, ["nombre_comprador", "email"])} />
 
-      <Boton type="submit" disabled={pendiente} className="min-h-[54px] justify-center rounded-[14px] text-[16px]">
-        {pendiente ? "Procesando…" : "Confirmar compra"}
+      <Boton type="submit" disabled={pendiente || sinMetodoDePago} className="min-h-[54px] justify-center rounded-[14px] text-[16px]">
+        {pendiente ? "Procesando…" : "Confirmar pedido"}
       </Boton>
     </form>
   );

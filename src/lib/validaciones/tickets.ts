@@ -12,6 +12,7 @@ export const esquemaComprar = z.object({
   cedula: zTextoOpcional(),
   email: z.email("Ese email no parece válido."),
   contacto: zTextoOpcional(),
+  contacto_confirmacion: zTextoOpcional(),
   // Solo se manda si la tanda es numerada y hay comprador logueado (campo
   // condicional del form — cuando no se renderiza, FormData.get() devuelve
   // null, no undefined; zIdOpcional() ya contempla ese caso).

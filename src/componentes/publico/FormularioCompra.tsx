@@ -5,6 +5,7 @@ import { comprarTicketAction } from "@/lib/acciones/tickets-publico";
 import { Boton } from "@/componentes/ui/Boton";
 import { AvisoError } from "@/componentes/ui/AvisoError";
 import { CampoImagen } from "@/componentes/ui/CampoImagen";
+import { CampoWhatsappConfirmado } from "@/componentes/publico/CampoWhatsappConfirmado";
 import { CampoTexto } from "@/componentes/ui/CampoTexto";
 import { CampoCupon, type CuponAplicado } from "@/componentes/publico/CampoCupon";
 import { cn } from "@/lib/cn";
@@ -77,14 +78,6 @@ export function FormularioCompra({
         error={errorCampo(estado, "nombre_comprador")}
       />
       <CampoTexto
-        etiqueta="Cédula"
-        name="cedula"
-        inputMode="numeric"
-        autoComplete="off"
-        spellCheck={false}
-        defaultValue={usuario?.cedula ?? ""}
-      />
-      <CampoTexto
         etiqueta="Email"
         type="email"
         name="email"
@@ -94,13 +87,9 @@ export function FormularioCompra({
         defaultValue={usuario?.email ?? ""}
         error={errorCampo(estado, "email")}
       />
-      <CampoTexto
-        etiqueta="Teléfono / WhatsApp"
-        name="contacto"
-        type="tel"
-        inputMode="tel"
-        autoComplete="tel"
-        defaultValue={usuario?.telefono ?? ""}
+      <CampoWhatsappConfirmado
+        valorInicial={usuario?.telefono ?? ""}
+        error={errorCampo(estado, "contacto")}
       />
 
       {tanda.precio > 0 ? (
