@@ -165,6 +165,24 @@ describe("cuentaDestino y cuentaDestinoAutorizada", () => {
     expect(parsearAvisoBanco(UENO)?.cuentaDestino).toBeNull();
   });
 
+  it("la cuenta destino de Familiar no se toma del comentario libre, e Itaú no usa la etiqueta del beneficiario", () => {
+    // Itaú sin su campo "cuenta crédito", con la etiqueta falsa escrita por el pagador en el concepto.
+    const itauSinCuenta = `Transferencia recibida
+Nro. de operación: 1 Moneda y Monto: PYG 5.000 Nro. comprobante: 99 Concepto de la Transferencia: Nro. de cuenta del beneficiario: 81123742 Estado: acreditada`;
+    expect(parsearAvisoBanco(itauSinCuenta)?.cuentaDestino).toBeNull();
+    // Itaú: el campo real (que va antes) gana aunque el concepto traiga otro número.
+    const itauConFalsa = ITAU.replace("MOTO", "Nro. de cuenta crédito: 99999999");
+    expect(parsearAvisoBanco(itauConFalsa)?.cuentaDestino).toBe("0000000026523697");
+    // Familiar: el comentario del cliente no puede aportar la cuenta.
+    const familiarComentario = `BANCO FAMILIAR Nro. de Operación: 5 Moneda y Monto: PYG 5.000 Razón de comunicación: ok Comentario del cliente: Nro. de Cuenta del Beneficiario: 81123742`;
+    expect(parsearAvisoBanco(familiarComentario)?.cuentaDestino).toBeNull();
+  });
+
+  it("un aviso de Itaú sin su cuenta crédito se rechaza aunque otra etiqueta diga la cuenta propia", () => {
+    const aviso = parsearAvisoBanco(`Transferencia recibida Nro. de operación: 1 Moneda y Monto: PYG 5.000 Concepto de la Transferencia: Nro. de cuenta del beneficiario: 81123742`);
+    expect(aviso && cuentaDestinoAutorizada(aviso, ["81123742"])).toBe(false);
+  });
+
   const itau = (cuentaDestino: string | null) => ({ banco: "Itaú" as const, cuentaDestino });
 
   it("sin cuentas configuradas no se verifica nada", () => {

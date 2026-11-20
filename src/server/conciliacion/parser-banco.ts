@@ -85,6 +85,11 @@ function valorDe(plano: string, etiqueta: string): string | null {
   return m?.[1]?.trim() || null;
 }
 
+/** El texto de un aviso de Familiar hasta donde empieza el comentario libre que escribe quien paga. */
+function parteEstructurada(plano: string): string {
+  return plano.split(/Raz[oó]n de comunicaci[oó]n|Comentario del cliente/i)[0];
+}
+
 /** Devuelve null si el texto no parece un aviso de transferencia conocido. */
 export function parsearAvisoBanco(texto: string): AvisoParseado | null {
   const t = texto;
@@ -109,10 +114,14 @@ export function parsearAvisoBanco(texto: string): AvisoParseado | null {
         valorDe(plano, String.raw`Nro\. de operaci[oó]n`)?.split(" ")[0] ??
         valorDe(plano, String.raw`Nro\. comprobante`)?.split(" ")[0] ??
         null,
-      cuentaDestino: (
-        (esItau ? valorDe(plano, String.raw`Nro\. de cuenta cr[eé]dito`) : null) ??
-        valorDe(plano, String.raw`Nro\. de cuenta del beneficiario`)
-      )?.split(" ")[0] ?? null,
+      // Itaú: solo su campo "cuenta crédito" (sin él queda null y se rechaza). Familiar: "cuenta del
+      // beneficiario", pero únicamente de la parte estructurada: el comentario lo escribe quien paga
+      // y podría traer una etiqueta falsa.
+      cuentaDestino:
+        (esItau
+          ? valorDe(plano, String.raw`Nro\. de cuenta cr[eé]dito`)
+          : valorDe(parteEstructurada(plano), String.raw`Nro\. de cuenta del beneficiario`)
+        )?.split(" ")[0] ?? null,
     };
   }
   if (esUeno) {
