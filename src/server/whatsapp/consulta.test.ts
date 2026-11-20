@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { mensajesWhatsapp, usuarios } from "@/db/esquema";
 import { crearOrden, crearUsuario } from "@/test/fixtures";
-import { extraerCodigoOrden, manejarTexto } from "./consulta";
+import { derivacionesWhatsapp } from "@/db/esquema";
+import { extraerCodigoOrden, manejarTexto, pidePersona } from "./consulta";
 import { ventanaAbierta } from "./mensajes";
 
 const NUMERO = "595991258700";
@@ -79,5 +80,58 @@ describe("manejarTexto", () => {
     const respuestas = await salientes();
     expect(respuestas).toHaveLength(5);
     expect(respuestas[0].contenido).toContain("ORD-");
+  });
+});
+
+describe("derivación a una persona", () => {
+  beforeEach(() => {
+    vi.stubEnv("WHATSAPP_ENVIO_ACTIVO", "false");
+    vi.stubEnv("CHATBOT_ACTIVO", "");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("reconoce cuando el cliente pide hablar con alguien", () => {
+    expect(pidePersona("quiero hablar con una persona")).toBe(true);
+    expect(pidePersona("necesito un asesor")).toBe(true);
+    expect(pidePersona("pasame con alguien por favor")).toBe(true);
+    expect(pidePersona("¿a qué hora abren?")).toBe(false);
+  });
+
+  it("si pide una persona abre la derivación y avisa al cliente", async () => {
+    await manejarTexto({ waMessageId: "wamid.P", numero: NUMERO, texto: "quiero hablar con una persona" });
+    const filas = await db.select().from(derivacionesWhatsapp);
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({ numero: NUMERO, estado: "abierta", ultimoMensaje: "quiero hablar con una persona" });
+    const enviados = await db.select().from(mensajesWhatsapp).where(eq(mensajesWhatsapp.direccion, "saliente"));
+    expect(enviados[0].contenido).toContain("avisamos a una persona");
+  });
+
+  it("con el chatbot activo responde la IA; si la IA deriva, abre la derivación", async () => {
+    vi.stubEnv("CHATBOT_ACTIVO", "true");
+    vi.stubEnv("GEMINI_API_KEY", "k");
+    const fetchFalso = vi.fn();
+    vi.stubGlobal("fetch", fetchFalso);
+    const salida = (o: object) => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(o) }] } }] }));
+
+    fetchFalso.mockResolvedValueOnce(salida({ respuesta: "Abrimos a las 20.", derivar: false, motivo: "" }));
+    await manejarTexto({ waMessageId: "wamid.I1", numero: NUMERO, texto: "¿a qué hora abren?" });
+    expect(await db.select().from(derivacionesWhatsapp)).toHaveLength(0);
+    const e1 = await db.select().from(mensajesWhatsapp).where(eq(mensajesWhatsapp.direccion, "saliente"));
+    expect(e1[0].contenido).toBe("Abrimos a las 20.");
+
+    fetchFalso.mockResolvedValueOnce(salida({ respuesta: "x", derivar: true, motivo: "reclamo de pago" }));
+    await manejarTexto({ waMessageId: "wamid.I2", numero: NUMERO, texto: "me cobraron dos veces" });
+    const d = await db.select().from(derivacionesWhatsapp);
+    expect(d).toHaveLength(1);
+    expect(d[0].motivo).toBe("reclamo de pago");
+  });
+
+  it("si la IA no está disponible usa la guía fija", async () => {
+    await manejarTexto({ waMessageId: "wamid.G", numero: NUMERO, texto: "hola" });
+    const e = await db.select().from(mensajesWhatsapp).where(eq(mensajesWhatsapp.direccion, "saliente"));
+    expect(e[0].contenido).toContain("asistente automático");
   });
 });

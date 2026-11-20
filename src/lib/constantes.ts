@@ -129,6 +129,9 @@ export type TipoMensajeWa = (typeof TIPOS_MENSAJE_WA)[number];
 export const ESTADOS_MENSAJE_WA = ["recibido", "simulado", "enviado", "entregado", "leido", "fallido"] as const;
 export type EstadoMensajeWa = (typeof ESTADOS_MENSAJE_WA)[number];
 
+export const ESTADOS_DERIVACION_WA = ["abierta", "resuelta"] as const;
+export type EstadoDerivacionWa = (typeof ESTADOS_DERIVACION_WA)[number];
+
 export const METODOS_PAGO = ["transferencia", "tarjeta", "billetera"] as const;
 export type MetodoPago = (typeof METODOS_PAGO)[number];
 

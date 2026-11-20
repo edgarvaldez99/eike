@@ -5,8 +5,10 @@ import { formatoFecha, formatoGs } from "@/lib/formato";
 import { normalizarTelefonoPy } from "@/lib/telefono";
 import { origenSitio, urlCompra } from "@/lib/url-sitio";
 import { obtenerAliasBancarioPlataforma } from "@/server/cuenta";
+import { derivarAPersona } from "./atencion";
 import { enviarTexto } from "./enviar";
-import { contarSalientesDesde, registrarMensaje } from "./mensajes";
+import { consultarIA, iaActiva } from "./ia";
+import { contarSalientesDesde, historialReciente, registrarMensaje } from "./mensajes";
 
 /** Tope de respuestas automáticas a un mismo número por hora: corta bucles y abuso. */
 const MAX_RESPUESTAS_POR_HORA = 5;
@@ -17,6 +19,16 @@ const MENSAJE_NO_ENCONTRADA =
   "No encontramos una compra con ese código asociada a este número. Revisá que sea el código que figura en tu compra (empieza con ORD-) y que escribas desde el WhatsApp que cargaste al comprar.";
 const MENSAJE_AYUDA =
   "Hola, soy el asistente automático de Eike. Escribime el código de tu compra (empieza con ORD-) y te cuento cómo va. Si ya pagaste, mandame la foto del comprobante.";
+
+const MENSAJE_DERIVADO =
+  "Listo, avisamos a una persona del equipo. Te escribe por este chat apenas pueda. Si es por un pago, mandanos también la foto del comprobante.";
+
+// "quiero hablar con una persona", "necesito un asesor", "pasame con alguien"…
+const PIDE_PERSONA = /\b(asesor|asesora|humano|operador|operadora|agente)\b|\b(hablar|comunicar\w*|pasa\w*|atend\w*)\b.{0,25}\b(persona|alguien|gente)\b/i;
+
+export function pidePersona(texto: string): boolean {
+  return PIDE_PERSONA.test(texto);
+}
 
 /** Busca el código de una orden del carrito ("ORD-…") dentro de un texto libre; lo devuelve en mayúsculas. */
 export function extraerCodigoOrden(texto: string): string | null {
@@ -82,12 +94,20 @@ export async function textoEstadoOrden(orden: OrdenDeConsulta): Promise<string> 
 export async function prepararRespuesta(
   numero: string,
   texto: string,
-): Promise<{ ordenId: number | null; respuesta: string | null }> {
+): Promise<{ ordenId: number | null; respuesta: string | null; derivar: string | null }> {
   const codigo = extraerCodigoOrden(texto);
-  if (!codigo) return { ordenId: null, respuesta: MENSAJE_AYUDA };
+  if (!codigo) {
+    if (pidePersona(texto)) return { ordenId: null, respuesta: MENSAJE_DERIVADO, derivar: "El cliente pidió hablar con una persona" };
+    if (iaActiva()) {
+      const ia = await consultarIA(texto, await historialReciente(numero));
+      if (ia?.derivar) return { ordenId: null, respuesta: MENSAJE_DERIVADO, derivar: ia.motivo };
+      if (ia) return { ordenId: null, respuesta: ia.respuesta, derivar: null };
+    }
+    return { ordenId: null, respuesta: MENSAJE_AYUDA, derivar: null };
+  }
   const orden = await buscarOrdenDelRemitente(codigo, numero);
-  if (!orden) return { ordenId: null, respuesta: MENSAJE_NO_ENCONTRADA };
-  return { ordenId: orden.id, respuesta: await textoEstadoOrden(orden) };
+  if (!orden) return { ordenId: null, respuesta: MENSAJE_NO_ENCONTRADA, derivar: null };
+  return { ordenId: orden.id, respuesta: await textoEstadoOrden(orden), derivar: null };
 }
 
 /**
@@ -96,7 +116,7 @@ export async function prepararRespuesta(
  * Devuelve true si se procesó (false = ya estaba o no se pudo registrar).
  */
 export async function manejarTexto(args: { waMessageId: string; numero: string; texto: string }): Promise<boolean> {
-  const { ordenId, respuesta } = await prepararRespuesta(args.numero, args.texto);
+  const { ordenId, respuesta, derivar } = await prepararRespuesta(args.numero, args.texto);
   const nuevo = await registrarMensaje({
     direccion: "entrante",
     waMessageId: args.waMessageId,
@@ -107,6 +127,7 @@ export async function manejarTexto(args: { waMessageId: string; numero: string; 
     estado: "recibido",
   });
   if (!nuevo) return false;
+  if (derivar) await derivarAPersona({ numero: args.numero, motivo: derivar, ultimoMensaje: args.texto, ordenId });
   if (!respuesta) return true;
 
   const hace1h = new Date(Date.now() - 60 * 60 * 1000);

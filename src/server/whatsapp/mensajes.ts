@@ -113,3 +113,28 @@ export async function actualizarEstadoSaliente(
     .set({ estado, error: error?.slice(0, 255) ?? null, actualizadoEn: new Date() })
     .where(eq(mensajesWhatsapp.waMessageId, waMessageId));
 }
+
+export interface TurnoConversacion {
+  direccion: "entrante" | "saliente";
+  contenido: string;
+}
+
+/** Últimos mensajes de texto del chat (cronológicos), para darle contexto al asistente. */
+export async function historialReciente(numero: string, maximo = 6, ahora = new Date()): Promise<TurnoConversacion[]> {
+  const filas = await db
+    .select({ direccion: mensajesWhatsapp.direccion, contenido: mensajesWhatsapp.contenido })
+    .from(mensajesWhatsapp)
+    .where(
+      and(
+        eq(mensajesWhatsapp.numero, numero),
+        eq(mensajesWhatsapp.tipo, "texto"),
+        isNotNull(mensajesWhatsapp.contenido),
+        gt(mensajesWhatsapp.creadoEn, new Date(ahora.getTime() - MS_VENTANA)),
+      ),
+    )
+    .orderBy(desc(mensajesWhatsapp.creadoEn))
+    .limit(maximo);
+  return filas
+    .reverse()
+    .map((f) => ({ direccion: f.direccion as "entrante" | "saliente", contenido: f.contenido ?? "" }));
+}

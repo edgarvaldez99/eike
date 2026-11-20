@@ -21,6 +21,7 @@ import {
   ESTADOS_AVISO_BANCO,
   DIRECCIONES_MENSAJE_WA,
   ESTADOS_COMPROBANTE_WA,
+  ESTADOS_DERIVACION_WA,
   ESTADOS_MENSAJE_WA,
   TIPOS_MENSAJE_WA,
   ORIGENES_COMPROBANTE,
@@ -57,6 +58,7 @@ import {
   type EstadoPago,
   type EstadoPremio,
   type EstadoReembolso,
+  type EstadoDerivacionWa,
   type EstadoSuscripcion,
   type EstadoTanda,
   type EstadoTicket,
@@ -1027,6 +1029,35 @@ export const mensajesWhatsapp = pgTable(
     checkEnum("chk_mensajes_wa_direccion", t.direccion, DIRECCIONES_MENSAJE_WA),
     checkEnum("chk_mensajes_wa_tipo", t.tipo, TIPOS_MENSAJE_WA),
     checkEnum("chk_mensajes_wa_estado", t.estado, ESTADOS_MENSAJE_WA),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// derivaciones_whatsapp: conversaciones que el bot pasa a una persona (cola de
+// atención manual del superadmin). A lo sumo una abierta por número.
+// ---------------------------------------------------------------------------
+export const derivacionesWhatsapp = pgTable(
+  "derivaciones_whatsapp",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    numero: varchar("numero", { length: 30 }).notNull(),
+    motivo: varchar("motivo", { length: 255 }).notNull(),
+    ultimoMensaje: text("ultimo_mensaje"),
+    ordenId: bigint("orden_id", { mode: "number" }),
+    estado: text("estado").notNull().default("abierta").$type<EstadoDerivacionWa>(),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+    resueltoEn: timestamp("resuelto_en", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("uq_derivaciones_wa_abierta")
+      .on(t.numero)
+      .where(sql`${t.estado} = 'abierta'`),
+    foreignKey({
+      name: "fk_derivaciones_wa_orden",
+      columns: [t.ordenId],
+      foreignColumns: [ordenes.id],
+    }).onDelete("set null"),
+    checkEnum("chk_derivaciones_wa_estado", t.estado, ESTADOS_DERIVACION_WA),
   ],
 );
 
