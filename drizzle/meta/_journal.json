@@ -99,6 +99,34 @@
       "when": 1794870790736,
       "tag": "0013_comprobantes_whatsapp",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795134642585,
+      "tag": "0014_correo_reenvio_banco",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1795136843670,
+      "tag": "0015_cuerpo_aviso_banco",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795138898875,
+      "tag": "0016_cuenta_destino_aviso",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795140948547,
+      "tag": "0017_comprobante_ocr_carrito",
+      "breakpoints": true
     }
   ]
 }

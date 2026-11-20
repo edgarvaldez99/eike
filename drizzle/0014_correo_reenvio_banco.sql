@@ -1,0 +1,1 @@
+ALTER TABLE "usuarios" ADD COLUMN "correo_reenvio_banco" varchar(150);

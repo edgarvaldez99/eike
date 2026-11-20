@@ -39,3 +39,13 @@ export const esquemaEditarNumeroWhatsapp = z.object({
     .min(6, "Ese número no parece válido.")
     .regex(/^[+\d][\d\s-]*$/, "Usá solo dígitos (podés empezar con +)."),
 });
+
+/** Solo superadmin — correo al que se reenvían los avisos del banco. Vacío = dejar de reenviar. */
+export const esquemaEditarCorreoReenvioBanco = z.object({
+  correo_reenvio_banco: z
+    .string()
+    .trim()
+    .max(150, "Ese correo es demasiado largo.")
+    .refine((v) => v === "" || z.email().safeParse(v).success, "Ese email no parece válido.")
+    .transform((v) => (v === "" ? null : v.toLowerCase())),
+});

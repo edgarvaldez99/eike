@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { usuarioActual } from "@/lib/auth/sesion";
@@ -17,6 +18,7 @@ import {
 } from "@/server/carrito";
 import { previsualizarCuponCarrito } from "@/server/cupones";
 import { exigirContactoConfirmado } from "@/lib/telefono";
+import { procesarComprobanteCarrito } from "@/server/conciliacion/comprobante-carrito";
 import { prepararComprobante } from "@/lib/archivos/comprobante";
 import { ipCliente, limitar } from "@/lib/rateLimit";
 import { ErrorNegocio } from "@/lib/errores";
@@ -182,6 +184,24 @@ export const checkoutCarritoAction = accionPublica({
       codigoCupon: datos.codigo_cupon,
       codigoReferido,
     });
+
+    // Lectura del comprobante con OCR y cruce con el aviso del banco: después de
+    // responderle al comprador, porque el OCR puede tardar decenas de segundos.
+    const { orden } = resultado;
+    if (comprobante && orden.comprobanteArchivo) {
+      after(() =>
+        procesarComprobanteCarrito({
+          ordenId: orden.id,
+          codigoOrden: orden.codigo,
+          total: orden.total,
+          nombreComprador: orden.nombreComprador,
+          contacto: orden.contacto,
+          archivo: orden.comprobanteArchivo as string,
+          buffer: comprobante.buffer,
+          extension: comprobante.extension,
+        }),
+      );
+    }
 
     // El carrito quedó 'completado' — el indicador del header (en el layout
     // público, que envuelve TODA página pública) tiene que dejar de contar

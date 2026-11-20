@@ -157,7 +157,7 @@ Recibís este correo porque hiciste una compra en Eike.
   return { asunto, texto, html };
 }
 
-function configSmtp() {
+export function configSmtp() {
   const host = process.env.SMTP_HOST || process.env.IMAP_HOST;
   const user = process.env.SMTP_USER || process.env.IMAP_USER;
   const pass = process.env.SMTP_PASS || process.env.IMAP_PASS;
@@ -179,7 +179,7 @@ function configSmtp() {
  * credenciales reales del buzón, así que sin esta guarda un clic de prueba
  * mandaría correos de verdad.
  */
-function envioHabilitado(): boolean {
+export function envioHabilitado(): boolean {
   return process.env.NODE_ENV === "production" || process.env.CORREO_ENVIO_DEV === "true";
 }
 

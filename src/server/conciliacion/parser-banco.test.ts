@@ -84,7 +84,7 @@ disposición; ante cualquier duda o consulta, podés llamar gratuítamente al 08
       fecha: "16/11/2026 20:30:30",
       referencia: null, // el comentario vacío no se traga el pie del correo
       operacion: "123456789",
-      cuentaDestino: null,
+      cuentaDestino: "81123742", // "Nro. de Cuenta del Beneficiario": la que recibió la plata
     });
   });
 
@@ -158,8 +158,10 @@ Nro. de cuenta crédito:    0000000026523697`);
 });
 
 describe("cuentaDestino y cuentaDestinoAutorizada", () => {
-  it("solo Itaú informa la cuenta destino; Familiar y UENO la dejan en null", () => {
-    expect(parsearAvisoBanco(FAMILIAR)?.cuentaDestino).toBeNull();
+  it("Itaú y Familiar informan la cuenta destino (si el correo la trae); UENO no", () => {
+    expect(parsearAvisoBanco(ITAU)?.cuentaDestino).toBe("0000000026523697");
+    expect(parsearAvisoBanco(FAMILIAR)?.cuentaDestino).toBeNull(); // esa muestra no trae el dato
+    expect(parsearAvisoBanco("BANCO FAMILIAR Nro. de Operación: 5 Moneda y Monto: PYG 5.000 Nro. de Cuenta del Beneficiario: 81123742 Razón de comunicación: ok")?.cuentaDestino).toBe("81123742");
     expect(parsearAvisoBanco(UENO)?.cuentaDestino).toBeNull();
   });
 
@@ -181,7 +183,13 @@ describe("cuentaDestino y cuentaDestinoAutorizada", () => {
     expect(cuentaDestinoAutorizada(itau(null), ["26523697"])).toBe(false);
   });
 
-  it("Familiar y UENO no informan la cuenta: no se pueden verificar y se aceptan", () => {
+  it("Familiar con cuenta destino: tiene que ser una de las propias", () => {
+    const familiar = (cuentaDestino: string) => ({ banco: "Familiar" as const, cuentaDestino });
+    expect(cuentaDestinoAutorizada(familiar("81123742"), ["81123742"])).toBe(true);
+    expect(cuentaDestinoAutorizada(familiar("99999999"), ["81123742"])).toBe(false);
+  });
+
+  it("Familiar sin el dato y UENO no se pueden verificar y se aceptan", () => {
     expect(cuentaDestinoAutorizada({ banco: "Familiar", cuentaDestino: null }, ["26523697"])).toBe(true);
     expect(cuentaDestinoAutorizada({ banco: "UENO", cuentaDestino: null }, ["26523697"])).toBe(true);
   });

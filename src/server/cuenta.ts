@@ -110,3 +110,24 @@ export async function obtenerAliasBancarioPlataforma(): Promise<DatosAliasBancar
     .limit(1);
   return fila?.tipo && fila.valor ? { tipo: fila.tipo, valor: fila.valor } : null;
 }
+
+/**
+ * Correo de la empresa al que se reenvían los avisos del banco: el buzón de
+ * pagos solo hace de "pasamanos" (lo lee la conciliación) y el banco es de la
+ * empresa, que debe seguir recibiendo sus correos. null = no reenviar. La
+ * action layer ya restringe el rol a superadmin.
+ */
+export async function editarCorreoReenvioBanco(usuarioId: number, correo: string | null): Promise<void> {
+  await db.update(usuarios).set({ correoReenvioBanco: correo }).where(eq(usuarios.id, usuarioId));
+}
+
+/** Correo de reenvío de la plataforma (el del primer superadmin que lo tenga), o null. */
+export async function obtenerCorreoReenvioBanco(): Promise<string | null> {
+  const [fila] = await db
+    .select({ correo: usuarios.correoReenvioBanco })
+    .from(usuarios)
+    .where(and(eq(usuarios.rol, "superadmin"), isNotNull(usuarios.correoReenvioBanco)))
+    .orderBy(usuarios.id)
+    .limit(1);
+  return fila?.correo ?? null;
+}

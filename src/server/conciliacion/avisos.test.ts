@@ -83,4 +83,22 @@ describe("registrarAviso", () => {
     expect(await registrarAviso(aviso({ operacion: "OP-FIJA" }))).toBe("duplicado");
     expect(await db.select().from(avisosBanco)).toHaveLength(1);
   });
+
+  it("guarda el texto del correo (recortado a 4000 caracteres) para mostrarlo en la aprobación", async () => {
+    await registrarAviso({ ...aviso({ messageId: "<cuerpo1@test>" }), cuerpo: "x".repeat(5000) });
+    await registrarAviso({ ...aviso({ messageId: "<cuerpo2@test>" }), cuerpo: "Transferencia recibida" });
+    await registrarAviso({ ...aviso({ messageId: "<cuerpo3@test>" }) });
+    const filas = await db.select({ id: avisosBanco.messageId, cuerpo: avisosBanco.cuerpo }).from(avisosBanco);
+    const porId = Object.fromEntries(filas.map((f) => [f.id, f.cuerpo]));
+    expect(porId["<cuerpo1@test>"]).toHaveLength(4000);
+    expect(porId["<cuerpo2@test>"]).toBe("Transferencia recibida");
+    expect(porId["<cuerpo3@test>"]).toBeNull();
+  });
+
+  it("guarda la cuenta que recibió la plata", async () => {
+    const base = aviso({ messageId: "<cuenta@test>" });
+    await registrarAviso({ ...base, datos: { ...base.datos, cuentaDestino: "81123742" } });
+    const [fila] = await db.select({ cuenta: avisosBanco.cuentaDestino }).from(avisosBanco).where(eq(avisosBanco.messageId, "<cuenta@test>"));
+    expect(fila.cuenta).toBe("81123742");
+  });
 });

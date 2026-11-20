@@ -17,7 +17,7 @@ export interface AvisoParseado {
   /** Concepto/comentario que escribió el pagador, si el banco lo trae. */
   referencia: string | null;
   operacion: string | null;
-  /** Cuenta que recibió la plata ("Nro. de cuenta crédito"). Hoy solo la trae Itaú; Familiar y UENO no. */
+  /** Cuenta que recibió la plata: "Nro. de cuenta crédito" (Itaú) o "Nro. de Cuenta del Beneficiario" (Familiar). UENO no la trae. */
   cuentaDestino: string | null;
 }
 
@@ -109,7 +109,10 @@ export function parsearAvisoBanco(texto: string): AvisoParseado | null {
         valorDe(plano, String.raw`Nro\. de operaci[oó]n`)?.split(" ")[0] ??
         valorDe(plano, String.raw`Nro\. comprobante`)?.split(" ")[0] ??
         null,
-      cuentaDestino: esItau ? valorDe(plano, String.raw`Nro\. de cuenta cr[eé]dito`) : null,
+      cuentaDestino: (
+        (esItau ? valorDe(plano, String.raw`Nro\. de cuenta cr[eé]dito`) : null) ??
+        valorDe(plano, String.raw`Nro\. de cuenta del beneficiario`)
+      )?.split(" ")[0] ?? null,
     };
   }
   if (esUeno) {
@@ -137,16 +140,18 @@ const soloDigitosSinCeros = (cuenta: string) => cuenta.replace(/\D/g, "").replac
  * firma. Por eso, si se configuró la lista de cuentas propias, la cuenta
  * destino del aviso tiene que estar en ella.
  *
- * Solo Itaú informa la cuenta destino; Familiar y UENO no, así que con esos
- * bancos no hay forma de verificarlo y se acepta (la defensa ahí es la firma
- * DKIM, el rechazo de reenvíos y la revisión manual). Sin cuentas
+ * Itaú y Familiar informan la cuenta destino; UENO no, y con ese banco (o un
+ * aviso de Familiar sin el dato) no hay forma de verificarlo y se acepta (la
+ * defensa ahí es la firma DKIM, el rechazo de reenvíos y la revisión manual).
+ * Un aviso de Itaú sin cuenta destino se rechaza. Sin cuentas
  * configuradas no se verifica nada. Se comparan solo los dígitos, sin ceros
  * a la izquierda ("0000000026523697" == "26523697").
  */
 export function cuentaDestinoAutorizada(aviso: Pick<AvisoParseado, "banco" | "cuentaDestino">, cuentasPropias: string[]): boolean {
   const propias = cuentasPropias.map(soloDigitosSinCeros).filter(Boolean);
-  if (propias.length === 0 || aviso.banco !== "Itaú") return true;
-  return aviso.cuentaDestino !== null && propias.includes(soloDigitosSinCeros(aviso.cuentaDestino));
+  if (propias.length === 0) return true;
+  if (aviso.cuentaDestino === null) return aviso.banco !== "Itaú";
+  return propias.includes(soloDigitosSinCeros(aviso.cuentaDestino));
 }
 
 /**

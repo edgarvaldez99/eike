@@ -76,6 +76,8 @@ export type UsuarioSesion = {
   // Número de WhatsApp del superadmin (mismo criterio, pero este sí se
   // muestra en el checkout público) — siempre null para cualquier otro rol.
   numeroWhatsapp: string | null;
+  // Correo al que se reenvían los avisos del banco (solo superadmin).
+  correoReenvioBanco: string | null;
 };
 
 const COLUMNAS_PUBLICAS = {
@@ -92,6 +94,7 @@ const COLUMNAS_PUBLICAS = {
   aliasBancarioTipo: usuarios.aliasBancarioTipo,
   aliasBancarioValor: usuarios.aliasBancarioValor,
   numeroWhatsapp: usuarios.numeroWhatsapp,
+  correoReenvioBanco: usuarios.correoReenvioBanco,
 } as const;
 
 /** Usuario logueado (sin password_hash), o null. Memoizado por request. */

@@ -113,6 +113,12 @@ export type EstadoAvisoBanco = (typeof ESTADOS_AVISO_BANCO)[number];
 export const ESTADOS_COMPROBANTE_WA = ["pendiente_banco", "confirmado", "observado", "duplicado", "sin_datos"] as const;
 export type EstadoComprobanteWa = (typeof ESTADOS_COMPROBANTE_WA)[number];
 
+// De dónde vino el comprobante leído por OCR: la foto que el comprador manda por
+// WhatsApp, o la que sube en el checkout del carrito. Ambos pasan por el mismo
+// pipeline y la misma tabla (comprobantes_whatsapp, nombre histórico).
+export const ORIGENES_COMPROBANTE = ["whatsapp", "carrito"] as const;
+export type OrigenComprobante = (typeof ORIGENES_COMPROBANTE)[number];
+
 export const METODOS_PAGO = ["transferencia", "tarjeta", "billetera"] as const;
 export type MetodoPago = (typeof METODOS_PAGO)[number];
 

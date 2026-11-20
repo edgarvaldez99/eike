@@ -61,4 +61,17 @@ describe("estaCorroborado", () => {
     expect(estaCorroborado(["pagador"])).toBe(false);
     expect(estaCorroborado([])).toBe(false);
   });
+
+  it("cuenta destino y fecha: informativos (la cuenta se compara sin ceros; la fecha con 3 minutos de tolerancia)", () => {
+    const c = { monto: 5000, pagador: null, nroComprobante: null, cuentaDestino: "81123742", fecha: "19/11/2026 22:54" };
+    const a = { monto: 5000, pagador: null, operacion: null, referencia: null, cuentaDestino: "0081123742", fechaOperacion: "19/11/2026 22:56:30" };
+    expect(coincidenciasPago(c, a)).toEqual(["monto", "cuenta", "fecha"]);
+    expect(coincidenciasPago(c, { ...a, cuentaDestino: "999999", fechaOperacion: "19/11/2026 23:30:00" })).toEqual(["monto"]);
+    expect(coincidenciasPago({ ...c, fecha: null, cuentaDestino: null }, a)).toEqual(["monto"]);
+  });
+
+  it("la cuenta y la fecha solas no corroboran el pago", () => {
+    expect(estaCorroborado(["monto", "cuenta", "fecha"])).toBe(false);
+    expect(estaCorroborado(["monto", "cuenta", "pagador"])).toBe(true);
+  });
 });

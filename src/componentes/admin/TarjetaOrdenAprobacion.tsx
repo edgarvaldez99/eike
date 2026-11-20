@@ -3,9 +3,18 @@ import { Card } from "@/componentes/ui/Card";
 import { Icono } from "@/componentes/ui/Icono";
 import { Pill } from "@/componentes/ui/Pill";
 import { BotonesAprobacion } from "@/componentes/organizador/BotonesAprobacion";
+import { fechaAvisoAIso } from "@/lib/fecha-aviso";
+import { ETIQUETA_COINCIDENCIA, FilaAvisoBanco } from "@/componentes/admin/FilaAvisoBanco";
+import { CandidatosCorreoBanco } from "@/componentes/admin/CandidatosCorreoBanco";
 import { formatoFecha, formatoGs, formatoVenceEn, linkWhatsapp } from "@/lib/formato";
 
-const ETIQUETA_COINCIDENCIA = { monto: "monto", pagador: "pagador", comprobante: "Nº de comprobante" } as const;
+const ETIQUETA_ESTADO_COMPROBANTE: Record<string, string> = {
+  pendiente_banco: "esperando el correo del banco",
+  confirmado: "confirmado con el banco",
+  observado: "observado: revisar",
+  duplicado: "duplicado",
+  sin_datos: "el OCR no pudo leer el monto",
+};
 
 /** Tarjeta de una compra para el backoffice de aprobaciones del superadmin. */
 export function TarjetaOrdenAprobacion({ orden, conAcciones = false }: { orden: OrdenParaAprobar; conAcciones?: boolean }) {
@@ -64,32 +73,20 @@ export function TarjetaOrdenAprobacion({ orden, conAcciones = false }: { orden: 
 
           {orden.comprobantesWa.length > 0 ? (
             <div className="text-[12.5px]">
-              <p className="font-bold">Comprobantes recibidos por WhatsApp</p>
-              <ul className="mt-1 flex flex-col gap-0.5 text-muted">
+              <p className="font-bold">Lo que leyó el OCR del comprobante</p>
+              <ul className="mt-1 flex flex-col gap-1 text-muted">
                 {orden.comprobantesWa.map((c) => (
                   <li key={c.id}>
-                    {c.waFrom} · {c.monto === null ? "monto no leído" : formatoGs(c.monto)} · {c.estado}
+                    {c.origen === "carrito" ? "Foto subida en el checkout" : `WhatsApp ${c.waFrom}`} ·{" "}
+                    {c.banco ?? "banco no reconocido"} · {c.monto === null ? "monto no leído" : formatoGs(c.monto)} ·{" "}
+                    {ETIQUETA_ESTADO_COMPROBANTE[c.estado] ?? c.estado}
                     {c.nroComprobante ? ` · Nº ${c.nroComprobante}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {orden.avisosBanco.length > 0 ? (
-            <div className="text-[12.5px]">
-              <p className="font-bold">Avisos del banco asociados</p>
-              <ul className="mt-1 flex flex-col gap-0.5 text-muted">
-                {orden.avisosBanco.map((a) => (
-                  <li key={a.id}>
-                    {a.banco ?? "Banco"} · {a.monto === null ? "—" : formatoGs(a.monto)}
-                    {a.pagador ? ` · ${a.pagador}` : ""}
-                    {a.operacion ? ` · op. ${a.operacion}` : ""}
-                    {orden.comprobantesWa.length > 0 ? (
-                      <span className={a.coincidencias.length > 1 ? "block text-green" : "block text-amarillo-texto"}>
-                        {a.coincidencias.length > 1
-                          ? `Coincide con el comprobante: ${a.coincidencias.map((c) => ETIQUETA_COINCIDENCIA[c]).join(", ")}`
-                          : "Solo coincide el monto, o ni eso: verificá a mano antes de aprobar"}
+                    {c.cuentaDestino ? ` · cuenta ${c.cuentaDestino}` : ""}
+                    {c.fecha ? ` · ${c.fecha}` : ""}
+                    {c.coincidenciasRegistradas.length > 0 ? (
+                      <span className="block text-green">
+                        Coincidió con el correo del banco:{" "}
+                        {c.coincidenciasRegistradas.map((x) => ETIQUETA_COINCIDENCIA[x as keyof typeof ETIQUETA_COINCIDENCIA] ?? x).join(", ")}
                       </span>
                     ) : null}
                   </li>
@@ -97,6 +94,8 @@ export function TarjetaOrdenAprobacion({ orden, conAcciones = false }: { orden: 
               </ul>
             </div>
           ) : null}
+
+          <CorreoBanco orden={orden} />
         </div>
 
         <div className="flex shrink-0 flex-col gap-3 lg:w-[280px]">
@@ -128,5 +127,51 @@ export function TarjetaOrdenAprobacion({ orden, conAcciones = false }: { orden: 
         </div>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Correo del banco para cotejar contra el comprobante. Si el aviso ya quedó atado
+ * a la orden se muestra como "asociado"; si no, se listan los que llegaron sin
+ * cruzar por el MISMO monto, para que el superadmin decida a ojo.
+ */
+function CorreoBanco({ orden }: { orden: OrdenParaAprobar }) {
+  const hayComprobanteWa = orden.comprobantesWa.length > 0;
+  const asociados = orden.avisosBanco;
+  const candidatos = orden.estado === "pendiente" ? orden.avisosCandidatos : [];
+
+  return (
+    <div className="flex flex-col gap-2 text-[12.5px]">
+      <p className="font-bold">Correo del banco</p>
+      {asociados.length > 0 ? (
+        <>
+          <p className="text-green">Asociado a esta compra</p>
+          {asociados.map((a) => (
+            <FilaAvisoBanco key={a.id} aviso={a} hayComprobanteWa={hayComprobanteWa} />
+          ))}
+        </>
+      ) : null}
+      {candidatos.length > 0 ? (
+        <>
+          <p className="text-amarillo-texto">
+            {asociados.length > 0 ? "Otros avisos" : "Avisos"} recientes sin asociar a ninguna compra — buscá el que
+            corresponda al comprobante (monto, cuenta, fecha y hora)
+          </p>
+          <CandidatosCorreoBanco
+            candidatos={candidatos}
+            totalOrden={orden.total}
+            hayComprobanteWa={hayComprobanteWa}
+            desdeInicial={fechaAvisoAIso(orden.comprobantesWa.find((c) => c.fecha)?.fecha ?? null)}
+          />
+        </>
+      ) : null}
+      {asociados.length === 0 && candidatos.length === 0 ? (
+        <p className="text-muted">
+          {orden.estado === "pendiente"
+            ? "Todavía no llegó ningún correo del banco en los últimos días."
+            : "No hay correo del banco asociado a esta compra."}
+        </p>
+      ) : null}
+    </div>
   );
 }

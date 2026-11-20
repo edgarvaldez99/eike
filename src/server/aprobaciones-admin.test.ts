@@ -58,6 +58,7 @@ describe("listarOrdenesPendientes", () => {
       comprobanteTipo: null,
       comprobantesWa: [],
       avisosBanco: [],
+      avisosCandidatos: [],
       reservadoHasta: null,
     });
     expect(lista[1].fechaCompra).toBeInstanceOf(Date);
@@ -112,12 +113,26 @@ describe("listarOrdenesPendientes", () => {
     const [orden] = await listarOrdenesPendientes();
 
     expect(orden.comprobantesWa).toEqual([
-      { id: expect.any(Number), waFrom: "595981000000", monto: 50000, pagador: "ANA MARIA PEREZ", estado: "confirmado", nroComprobante: "N-1" },
+      {
+        id: expect.any(Number),
+        waFrom: "595981000000",
+        monto: 50000,
+        pagador: "ANA MARIA PEREZ",
+        estado: "confirmado",
+        nroComprobante: "N-1",
+        banco: null,
+        cuentaDestino: null,
+        fecha: null,
+        origen: "whatsapp",
+        coincidenciasRegistradas: [],
+      },
     ]);
     expect(orden.avisosBanco).toEqual([
-      { id: expect.any(Number), monto: 50000, pagador: "PEREZ ANA MARIA", operacion: "OP-1", referencia: null, banco: "Itaú", coincidencias: ["monto", "pagador"] },
-      { id: expect.any(Number), monto: 70000, pagador: "OTRA PERSONA", operacion: null, referencia: "nota", banco: "Familiar", coincidencias: [] },
+      expect.objectContaining({ monto: 50000, pagador: "PEREZ ANA MARIA", operacion: "OP-1", referencia: null, banco: "Itaú", coincidencias: ["monto", "pagador"] }),
+      expect.objectContaining({ monto: 70000, pagador: "OTRA PERSONA", operacion: null, referencia: "nota", banco: "Familiar", coincidencias: [] }),
     ]);
+    expect(orden.avisosBanco[0]).toMatchObject({ estado: "conciliado", autenticado: false, cuerpo: null, fechaOperacion: null });
+    expect(orden.avisosBanco[0].recibidoEn).toBeInstanceOf(Date);
   });
 
   it("sin comprobantes de WhatsApp en la orden, los avisos no tienen coincidencias que mostrar", async () => {
@@ -128,6 +143,99 @@ describe("listarOrdenesPendientes", () => {
     const [orden] = await listarOrdenesPendientes();
 
     expect(orden.avisosBanco[0].coincidencias).toEqual([]);
+  });
+});
+
+describe("comprobante leído por OCR", () => {
+  it("trae lo que leyó el OCR de la foto del carrito y qué coincidió con el correo del banco", async () => {
+    const e = await escenario();
+    const id = await ordenConTicket(e);
+    await db.insert(comprobantesWhatsapp).values({
+      waMessageId: "carrito:ORD-X",
+      waFrom: "595961746430",
+      estado: "confirmado",
+      origen: "carrito",
+      banco: "Itaú",
+      monto: 50000,
+      cuentaDestino: "81123742",
+      fechaOperacion: "19/11/2026 22:54",
+      coincidencias: "monto,cuenta,fecha",
+      ordenId: id,
+    });
+    const [orden] = await listarOrdenesPendientes();
+    expect(orden.comprobantesWa[0]).toMatchObject({
+      origen: "carrito",
+      banco: "Itaú",
+      cuentaDestino: "81123742",
+      fecha: "19/11/2026 22:54",
+      coincidenciasRegistradas: ["monto", "cuenta", "fecha"],
+    });
+  });
+});
+
+describe("avisos candidatos y texto del correo", () => {
+  it("trae el texto del correo y la fecha de la operación de un aviso asociado", async () => {
+    const e = await escenario();
+    const id = await ordenConTicket(e);
+    await db.insert(avisosBanco).values({
+      messageId: "<t@test>",
+      estado: "conciliado",
+      monto: 50000,
+      ordenId: id,
+      autenticado: true,
+      fechaOperacion: "16/11/2026 20:30:00",
+      cuentaDestino: "81123742",
+      cuerpo: "Transferencia recibida PYG 50,000",
+    });
+    const [orden] = await listarOrdenesPendientes();
+    expect(orden.avisosBanco[0]).toMatchObject({
+      autenticado: true,
+      fechaOperacion: "16/11/2026 20:30:00",
+      cuentaDestino: "81123742",
+      cuerpo: "Transferencia recibida PYG 50,000",
+    });
+  });
+
+  it("lista los avisos recientes sin atar (el de igual monto primero, y también los de otro monto) sin los ya atados ni descartados", async () => {
+    const e = await escenario();
+    const id = await ordenConTicket(e);
+    const otra = await ordenConTicket(e);
+    await db.insert(avisosBanco).values([
+      { messageId: "<c1@test>", estado: "sin_cruzar", monto: 99000, pagador: "OTRO MONTO" },
+      { messageId: "<c2@test>", estado: "ambiguo", monto: 50000, pagador: "MISMO MONTO" },
+      { messageId: "<c3@test>", estado: "sin_cruzar", monto: 50, pagador: "PAGO DE MENOS" },
+      { messageId: "<c4@test>", estado: "conciliado", monto: 50000, ordenId: otra },
+      { messageId: "<c5@test>", estado: "descartado", monto: 50000 },
+    ]);
+    const lista = await listarOrdenesPendientes();
+    const orden = lista.find((o) => o.id === id)!;
+    expect(orden.avisosCandidatos[0].pagador).toBe("MISMO MONTO");
+    expect(orden.avisosCandidatos.map((a) => a.pagador).sort()).toEqual(["MISMO MONTO", "OTRO MONTO", "PAGO DE MENOS"]);
+    expect(orden.avisosBanco).toEqual([]);
+  });
+
+  it("no considera avisos de hace más de 3 días", async () => {
+    const e = await escenario();
+    const id = await ordenConTicket(e);
+    await db.insert(avisosBanco).values({
+      messageId: "<viejo@test>",
+      estado: "sin_cruzar",
+      monto: 50000,
+      recibidoEn: new Date(Date.now() - 4 * 24 * 3_600_000),
+    });
+    const orden = (await listarOrdenesPendientes()).find((o) => o.id === id)!;
+    expect(orden.avisosCandidatos).toEqual([]);
+  });
+
+  it("limita los candidatos a los 50 más recientes", async () => {
+    const e = await escenario();
+    const id = await ordenConTicket(e);
+    await db.insert(avisosBanco).values(
+      Array.from({ length: 60 }, (_, i) => ({ messageId: `<m${i}@test>`, estado: "sin_cruzar" as const, monto: 50000, operacion: `OP-${i}` })),
+    );
+    const orden = (await listarOrdenesPendientes()).find((o) => o.id === id)!;
+    expect(orden.avisosCandidatos).toHaveLength(50);
+    expect(orden.avisosCandidatos[0].operacion).toBe("OP-59");
   });
 });
 

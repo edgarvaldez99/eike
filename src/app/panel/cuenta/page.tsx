@@ -5,7 +5,6 @@ import { Pill } from "@/componentes/ui/Pill";
 import { CodigoReferido } from "@/componentes/cuenta/CodigoReferido";
 import { FormularioEditarPerfil } from "@/componentes/cuenta/FormularioEditarPerfil";
 import { FormularioCambiarPassword } from "@/componentes/cuenta/FormularioCambiarPassword";
-import { FormularioAliasBancario } from "@/componentes/cuenta/FormularioAliasBancario";
 import { FormularioNumeroWhatsapp } from "@/componentes/cuenta/FormularioNumeroWhatsapp";
 import { formatoFecha } from "@/lib/formato";
 
@@ -75,17 +74,6 @@ export default async function PaginaCuenta() {
 
       {usuario.rol === "superadmin" ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div>
-            <h2 className="mb-3 text-[15px] font-extrabold">Alias bancario para cobros</h2>
-            <Card>
-              <FormularioAliasBancario
-                key={usuario.aliasBancarioValor ?? "sin-alias"}
-                tipoActual={usuario.aliasBancarioTipo}
-                valorActual={usuario.aliasBancarioValor}
-              />
-            </Card>
-          </div>
-
           <div>
             <h2 className="mb-3 text-[15px] font-extrabold">WhatsApp para comprobantes</h2>
             <Card>

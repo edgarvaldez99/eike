@@ -1,0 +1,1 @@
+ALTER TABLE "avisos_banco" ADD COLUMN "cuenta_destino" varchar(40);

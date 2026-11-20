@@ -20,6 +20,7 @@ import {
   ESTADOS_ASIENTO,
   ESTADOS_AVISO_BANCO,
   ESTADOS_COMPROBANTE_WA,
+  ORIGENES_COMPROBANTE,
   ESTADOS_CARRITO,
   ESTADOS_EVENTO,
   ESTADOS_LIQUIDACION,
@@ -41,6 +42,7 @@ import {
   type AprobacionGratuito,
   type EstadoAvisoBanco,
   type EstadoComprobanteWa,
+  type OrigenComprobante,
   type EstadoAsiento,
   type EstadoCarrito,
   type EstadoEvento,
@@ -163,6 +165,9 @@ export const usuarios = pgTable(
     // comprobante, no el destino del dinero. NULL hasta que el superadmin
     // lo carga desde /panel/cuenta.
     numeroWhatsapp: varchar("numero_whatsapp", { length: 30 }),
+    // Correo de la empresa al que se reenvían los avisos del banco que llegan al
+    // buzón de pagos (dato de la plataforma, solo superadmin). null = no reenviar.
+    correoReenvioBanco: varchar("correo_reenvio_banco", { length: 150 }),
     creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -894,6 +899,11 @@ export const avisosBanco = pgTable(
     operacion: varchar("operacion", { length: 80 }),
     referencia: varchar("referencia", { length: 255 }),
     fechaOperacion: varchar("fecha_operacion", { length: 40 }),
+    // Texto del correo del banco (recortado), para que el superadmin lo lea y lo compare
+    // con el comprobante. Solo texto: nunca se renderiza como HTML.
+    cuerpo: text("cuerpo"),
+    // Cuenta que recibió la plata, tal cual viene en el correo (Itaú y Familiar la informan).
+    cuentaDestino: varchar("cuenta_destino", { length: 40 }),
     estado: text("estado").notNull().$type<EstadoAvisoBanco>(),
     ordenId: bigint("orden_id", { mode: "number" }),
     recibidoEn: timestamp("recibido_en", { withTimezone: true }).notNull().defaultNow(),
@@ -937,6 +947,14 @@ export const comprobantesWhatsapp = pgTable(
     concepto: varchar("concepto", { length: 255 }),
     pagador: varchar("pagador", { length: 255 }),
     beneficiario: varchar("beneficiario", { length: 400 }),
+    // 'whatsapp' | 'carrito': ambos se leen con el mismo OCR y se cruzan igual con el aviso del banco.
+    origen: text("origen").notNull().default("whatsapp").$type<OrigenComprobante>(),
+    // Datos extraídos de la foto (ver parser-comprobante.ts), para tener registrado cómo
+    // luce el comprobante de cada banco y poder ajustar el OCR (src/server/conciliacion/OCR-COMPROBANTES.md).
+    cuentaDestino: varchar("cuenta_destino", { length: 40 }),
+    fechaOperacion: varchar("fecha_operacion", { length: 40 }),
+    // Qué datos coincidieron con el aviso del banco al confirmar ("monto,pagador,cuenta,fecha").
+    coincidencias: varchar("coincidencias", { length: 120 }),
     estado: text("estado").notNull().$type<EstadoComprobanteWa>(),
     problemas: text("problemas"),
     ordenId: bigint("orden_id", { mode: "number" }),
@@ -961,6 +979,7 @@ export const comprobantesWhatsapp = pgTable(
       foreignColumns: [avisosBanco.id],
     }).onDelete("set null"),
     checkEnum("chk_comprobantes_wa_estado", t.estado, ESTADOS_COMPROBANTE_WA),
+    checkEnum("chk_comprobantes_wa_origen", t.origen, ORIGENES_COMPROBANTE),
   ],
 );
 

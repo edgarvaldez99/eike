@@ -18,8 +18,7 @@ const ETIQUETA_TIPO: Record<TipoAliasBancario, string> = {
 
 /**
  * Alias bancario del superadmin (dato de la plataforma, no de cada
- * organizador) — para el mensaje de WhatsApp con las instrucciones de pago,
- * nunca se muestra en el checkout. En Paraguay el alias interbancario
+ * organizador) — se muestra en el checkout como dato de la transferencia. En Paraguay el alias interbancario
  * (SIPAP) se identifica por RUC, cédula/CI, teléfono o correo.
  */
 export function FormularioAliasBancario({
@@ -60,7 +59,7 @@ export function FormularioAliasBancario({
           </Boton>
         </div>
         <p className="text-[12.5px] text-muted">
-          Usalo para el mensaje de WhatsApp con las instrucciones de pago — no se muestra en el checkout.
+          Es el alias que ve el comprador en el checkout para hacer la transferencia.
         </p>
       </div>
     );

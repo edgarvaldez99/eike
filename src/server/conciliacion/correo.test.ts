@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@/db/cliente";
 import { avisosBanco } from "@/db/esquema";
+import { editarCorreoReenvioBanco } from "@/server/cuenta";
 import { crearOrden, crearUsuario } from "@/test/fixtures";
 
 // ---- Dobles de imapflow / mailparser / dkim ---------------------------------
@@ -72,6 +73,9 @@ vi.mock("mailparser", () => ({
 }));
 
 vi.mock("./dkim", () => ({ dkimAutenticaRemitente: async () => falso.dkim }));
+
+const reenvioFalso = vi.hoisted(() => ({ reenviarCorreoBanco: vi.fn() }));
+vi.mock("./reenvio", () => reenvioFalso);
 
 import { leerCorreoBanco } from "./correo";
 
@@ -275,6 +279,72 @@ Nro. de cuenta crédito:    0000000099999999` }));
       falso.dkim = false;
       correos(avisoDe(1));
       expect(await leerCorreoBanco()).toMatchObject({ sinCruzar: 1, descartados: 0 });
+    });
+  });
+
+  describe("reenvío a la empresa", () => {
+    async function configurarDestino(correo: string | null = "empresa@test.com") {
+      const id = await crearUsuario({ rol: "superadmin" });
+      await editarCorreoReenvioBanco(id, correo);
+    }
+
+    it("reenvía cada correo del banco al correo configurado (original adjunto) y lo marca leído", async () => {
+      await configurarDestino();
+      reenvioFalso.reenviarCorreoBanco.mockResolvedValue("enviado");
+      correos(avisoDe(1, { html: "<p>hola</p>" }));
+      await leerCorreoBanco();
+      expect(reenvioFalso.reenviarCorreoBanco).toHaveBeenCalledTimes(1);
+      expect(reenvioFalso.reenviarCorreoBanco).toHaveBeenCalledWith(
+        expect.objectContaining({
+          destino: "empresa@test.com",
+          asunto: "(sin asunto)",
+          remitenteOriginal: "info@itau.com.py",
+          html: "<p>hola</p>",
+          original: Buffer.from("uid-1"),
+          verificado: true,
+        }),
+      );
+      expect(falso.marcados).toEqual(["1"]);
+    });
+
+    it("también reenvía un correo del banco que no es un aviso de transferencia", async () => {
+      await configurarDestino();
+      reenvioFalso.reenviarCorreoBanco.mockResolvedValue("enviado");
+      correos([1, { text: "Resumen de su cuenta", messageId: "<r@test>" }]);
+      const resumen = await leerCorreoBanco();
+      expect(resumen.ignorados).toBe(1);
+      expect(reenvioFalso.reenviarCorreoBanco).toHaveBeenCalledWith(expect.objectContaining({ html: null }));
+    });
+
+    it("con la firma del banco inválida lo reenvía igual, pero marcado como no verificado", async () => {
+      await configurarDestino();
+      reenvioFalso.reenviarCorreoBanco.mockClear();
+      reenvioFalso.reenviarCorreoBanco.mockResolvedValue("enviado");
+      falso.dkim = false;
+      correos(avisoDe(1), [2, { text: "Resumen", messageId: "<r2@test>" }]);
+      await leerCorreoBanco();
+      expect(reenvioFalso.reenviarCorreoBanco).toHaveBeenCalledTimes(2);
+      expect(reenvioFalso.reenviarCorreoBanco).toHaveBeenNthCalledWith(1, expect.objectContaining({ verificado: false }));
+      expect(reenvioFalso.reenviarCorreoBanco).toHaveBeenNthCalledWith(2, expect.objectContaining({ verificado: false }));
+    });
+
+    it("no reenvía si no hay correo configurado, o si el remitente no es del banco", async () => {
+      reenvioFalso.reenviarCorreoBanco.mockClear();
+      correos(avisoDe(1));
+      await leerCorreoBanco();
+      await configurarDestino();
+      correos(avisoDe(2, { from: "estafa@malo.com" }), avisoDe(3, { from: null }));
+      await leerCorreoBanco();
+      expect(reenvioFalso.reenviarCorreoBanco).not.toHaveBeenCalled();
+    });
+
+    it("si el reenvío falla, cuenta como error y el correo queda sin leer para reintentar", async () => {
+      await configurarDestino();
+      reenvioFalso.reenviarCorreoBanco.mockRejectedValueOnce(new Error("SMTP caído"));
+      correos(avisoDe(1));
+      const resumen = await leerCorreoBanco();
+      expect(resumen.errores).toBe(1);
+      expect(falso.marcados).toEqual([]);
     });
   });
 

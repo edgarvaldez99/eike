@@ -2,7 +2,9 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { registrarAviso } from "./avisos";
 import { cruzarComprobantesConAvisos } from "./cruce";
+import { obtenerCorreoReenvioBanco } from "@/server/cuenta";
 import { dkimAutenticaRemitente } from "./dkim";
+import { reenviarCorreoBanco } from "./reenvio";
 import { cuentaDestinoAutorizada, htmlATexto, parsearAvisoBanco, remitenteAutorizado } from "./parser-banco";
 
 const REMITENTES_POR_DEFECTO = "itau.com.py,familiar.com.py,ueno.com.py";
@@ -93,6 +95,9 @@ export async function leerCorreoBanco(): Promise<ResumenLectura> {
     errores: 0,
   };
 
+  // Correo de la empresa al que se reenvía todo lo que mande el banco (ver reenvio.ts).
+  const destinoReenvio = await obtenerCorreoReenvioBanco();
+
   const cliente = new ImapFlow({
     host: cfg.host,
     port: cfg.port,
@@ -132,12 +137,25 @@ export async function leerCorreoBanco(): Promise<ResumenLectura> {
             autenticado,
             datos,
             sospechoso,
+            cuerpo,
           });
           if (resultado === "duplicado") resumen.duplicados += 1;
           else if (resultado.estado === "conciliado") resumen.conciliados += 1;
           else if (resultado.estado === "ambiguo") resumen.ambiguos += 1;
           else if (resultado.estado === "descartado") resumen.descartados += 1;
           else resumen.sinCruzar += 1;
+        }
+        if (destinoReenvio && remitente && (aceptarTodos || remitenteAutorizado(remitente, permitidos))) {
+          await reenviarCorreoBanco({
+            destino: destinoReenvio,
+            asunto: correo.subject ?? "(sin asunto)",
+            remitenteOriginal: remitente,
+            texto: cuerpo,
+            html: typeof correo.html === "string" ? correo.html : null,
+            original: mensaje.source,
+            // El From es falsificable: sin firma DKIM válida se reenvía solo como texto, marcado.
+            verificado: autenticado || (datos === null && (await dkimAutenticaRemitente(mensaje.source, remitente))),
+          });
         }
         await cliente.messageFlagsAdd(String(uid), ["\\Seen"], { uid: true });
       } catch (error) {

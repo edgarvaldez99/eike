@@ -13,7 +13,11 @@ export interface EntradaAviso {
   datos: AvisoParseado;
   /** true si el remitente o la autenticación no pasaron el control: se guarda como 'descartado'. */
   sospechoso: boolean;
+  /** Texto del correo, para mostrárselo al superadmin en la aprobación. */
+  cuerpo?: string | null;
 }
+
+const CUERPO_MAXIMO = 4000;
 
 export type ResultadoAviso = { estado: EstadoAvisoBanco; ordenId: number | null } | "duplicado";
 
@@ -66,6 +70,8 @@ export async function registrarAviso(entrada: EntradaAviso): Promise<ResultadoAv
         operacion: datos.operacion,
         referencia: datos.referencia,
         fechaOperacion: datos.fecha,
+        cuentaDestino: datos.cuentaDestino?.slice(0, 40) ?? null,
+        cuerpo: entrada.cuerpo ? entrada.cuerpo.slice(0, CUERPO_MAXIMO) : null,
         estado,
         ordenId,
       })

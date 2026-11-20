@@ -40,6 +40,7 @@ export default async function LayoutAdmin({ children }: { children: React.ReactN
           { href: "/panel/admin/eventos", etiqueta: "Eventos" },
           { href: "/panel/admin/liquidaciones", etiqueta: "Liquidaciones" },
           { href: "/panel/admin/reportes", etiqueta: "Reportes" },
+          { href: "/panel/admin/pagos", etiqueta: "Pagos" },
         ]}
       />
 

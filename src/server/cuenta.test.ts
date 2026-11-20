@@ -5,8 +5,12 @@ import { usuarios } from "@/db/esquema";
 import {
   cambiarPasswordPropio,
   editarAliasBancario,
+  editarCorreoReenvioBanco,
+  editarNumeroWhatsappPlataforma,
+  obtenerNumeroWhatsappPlataforma,
   editarPerfilPropio,
   obtenerAliasBancarioPlataforma,
+  obtenerCorreoReenvioBanco,
 } from "@/server/cuenta";
 import { hashearPassword, verificarPassword } from "@/lib/auth/password";
 import { ErrorNegocio } from "@/lib/errores";
@@ -102,6 +106,31 @@ describe("obtenerAliasBancarioPlataforma", () => {
     const id = await crearUsuario({ rol: "superadmin" });
     await editarAliasBancario(id, { tipo: "ruc", valor: "80012345-6" });
     expect(await obtenerAliasBancarioPlataforma()).toEqual({ tipo: "ruc", valor: "80012345-6" });
+  });
+});
+
+describe("número de WhatsApp de la plataforma", () => {
+  it("es null si ningún superadmin lo cargó, y devuelve el cargado", async () => {
+    const id = await crearUsuario({ rol: "superadmin" });
+    expect(await obtenerNumeroWhatsappPlataforma()).toBeNull();
+    await editarNumeroWhatsappPlataforma(id, "+595991258700");
+    expect(await obtenerNumeroWhatsappPlataforma()).toBe("+595991258700");
+  });
+});
+
+describe("correo de reenvío del banco", () => {
+  it("es null si ningún superadmin lo cargó, y devuelve el cargado", async () => {
+    const id = await crearUsuario({ rol: "superadmin" });
+    expect(await obtenerCorreoReenvioBanco()).toBeNull();
+    await editarCorreoReenvioBanco(id, "empresa@test.com");
+    expect(await obtenerCorreoReenvioBanco()).toBe("empresa@test.com");
+  });
+
+  it("se puede quitar (null) para dejar de reenviar", async () => {
+    const id = await crearUsuario({ rol: "superadmin" });
+    await editarCorreoReenvioBanco(id, "empresa@test.com");
+    await editarCorreoReenvioBanco(id, null);
+    expect(await obtenerCorreoReenvioBanco()).toBeNull();
   });
 });
 

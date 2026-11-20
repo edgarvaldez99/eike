@@ -6,12 +6,14 @@ import { obtenerOCrearCodigoReferido } from "@/server/referidos";
 import {
   cambiarPasswordPropio,
   editarAliasBancario,
+  editarCorreoReenvioBanco,
   editarNumeroWhatsappPlataforma,
   editarPerfilPropio,
 } from "@/server/cuenta";
 import {
   esquemaCambiarPassword,
   esquemaEditarAliasBancario,
+  esquemaEditarCorreoReenvioBanco,
   esquemaEditarNumeroWhatsapp,
   esquemaEditarPerfil,
 } from "@/lib/validaciones/cuenta";
@@ -57,7 +59,7 @@ export const editarAliasBancarioAction = accionSegura({
   roles: ["superadmin"],
   ejecutar: async (datos, usuario) => {
     await editarAliasBancario(usuario.id, { tipo: datos.alias_bancario_tipo, valor: datos.alias_bancario_valor });
-    revalidatePath("/panel/cuenta");
+    revalidatePath("/panel/admin/pagos");
   },
 });
 
@@ -68,5 +70,15 @@ export const editarNumeroWhatsappAction = accionSegura({
   ejecutar: async (datos, usuario) => {
     await editarNumeroWhatsappPlataforma(usuario.id, datos.numero_whatsapp);
     revalidatePath("/panel/cuenta");
+  },
+});
+
+/** Solo superadmin — correo al que se reenvían los avisos del banco (ver server/cuenta.ts). */
+export const editarCorreoReenvioBancoAction = accionSegura({
+  esquema: esquemaEditarCorreoReenvioBanco,
+  roles: ["superadmin"],
+  ejecutar: async (datos, usuario) => {
+    await editarCorreoReenvioBanco(usuario.id, datos.correo_reenvio_banco);
+    revalidatePath("/panel/admin/pagos");
   },
 });

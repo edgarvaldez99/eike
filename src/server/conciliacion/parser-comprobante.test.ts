@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsearComprobanteOcr } from "./parser-comprobante";
+import { extraerCuentaDestino, extraerFechaComprobante, parsearComprobanteOcr } from "./parser-comprobante";
 
 // Texto que devolvió OCR.space sobre un comprobante real de ueno (poc/README.md).
 const UENO = `ueno bank · Comprobante de transferencia
@@ -52,11 +52,56 @@ realizada el 16 nov 2026 a las 20:30 hs`);
     expect(d.pagador).toBeNull();
     expect(d.beneficiario).toBe("Pérez Gómez Juan Carlos BANCO FAMILIAR S.A.E.C.A.");
     expect(d.concepto).toBeNull();
+    expect(d.cuentaDestino).toBe("81123742");
+    expect(d.fecha).toBe("16/11/2026 20:30");
   });
 
   it("un texto que no es un comprobante devuelve todo en null", () => {
     expect(parsearComprobanteOcr("foto de un perro")).toEqual({
-      banco: null, monto: null, concepto: null, nro: null, pagador: null, beneficiario: null,
+      banco: null, monto: null, concepto: null, nro: null, pagador: null, beneficiario: null, cuentaDestino: null, fecha: null,
     });
   });
+
+  it("captura de otra app (mango): fecha con guion y cuenta con 'Cta. N°' (datos ficticios)", () => {
+    const d = parsearComprobanteOcr(`Monto
+Gs. 50
+EDGAR MOISES VALDEZ FARIA
+BANCO FAMILIAR S.A.E.C.A.
+Cta. N° 81123742
+Origen
+Guillermo David Gonzalez Encina
+TU FINANCIERA
+Cta. N° ----680
+Fecha y hora
+19 nov 2026 - 22:54 Hs
+Estado
+Procesando transferencia`);
+    expect(d.monto).toBe(50);
+    expect(d.cuentaDestino).toBe("81123742");
+    expect(d.fecha).toBe("19/11/2026 22:54");
+  });
+});
+
+describe("extraerFechaComprobante", () => {
+  it("acepta mes en letras (con o sin punto, 'set' o 'sep') y fecha numérica", () => {
+    expect(extraerFechaComprobante("3 set. 2026 a las 9:05 hs")).toBe("03/09/2026 09:05");
+    expect(extraerFechaComprobante("realizada el 16/11/2026 20:30")).toBe("16/11/2026 20:30");
+  });
+
+  it("sin hora o sin fecha devuelve null", () => {
+    expect(extraerFechaComprobante("16 nov 2026")).toBeNull();
+    expect(extraerFechaComprobante("hola")).toBeNull();
+  });
+});
+
+describe("extraerCuentaDestino", () => {
+  it("sin cuenta de 5+ dígitos devuelve null, y ignora las enmascaradas", () => {
+    expect(extraerCuentaDestino("Cta. N° ----680")).toBeNull();
+    expect(extraerCuentaDestino("nada")).toBeNull();
+  });
+
+  it("sin bloque PARA toma la primera cuenta del texto", () => {
+    expect(extraerCuentaDestino("cuenta nro: 123456")).toBe("123456");
+  });
+
 });

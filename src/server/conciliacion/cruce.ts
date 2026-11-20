@@ -55,7 +55,9 @@ export async function cruzarComprobantesConAvisos(): Promise<number> {
           ),
         )
         .orderBy(avisosBanco.id);
-      const aviso = avisosDelMonto.find((a) => estaCorroborado(coincidenciasPago(c, a)));
+      // El comprobante guarda su fecha como fecha_operacion; coincidenciasPago la espera como `fecha`.
+      const datosComprobante = { ...c, nroComprobante: c.nroComprobante, fecha: c.fechaOperacion };
+      const aviso = avisosDelMonto.find((a) => estaCorroborado(coincidenciasPago(datosComprobante, a)));
       if (!aviso) continue;
 
       if (c.ordenId !== null && aviso.ordenId !== null && c.ordenId !== aviso.ordenId) {
@@ -73,7 +75,13 @@ export async function cruzarComprobantesConAvisos(): Promise<number> {
 
       await tx
         .update(comprobantesWhatsapp)
-        .set({ estado: "confirmado", avisoId: aviso.id, ordenId: c.ordenId ?? aviso.ordenId })
+        .set({
+          estado: "confirmado",
+          avisoId: aviso.id,
+          ordenId: c.ordenId ?? aviso.ordenId,
+          // Queda registrado QUÉ datos de la foto coincidieron con el correo del banco.
+          coincidencias: coincidenciasPago(datosComprobante, aviso).join(","),
+        })
         .where(eq(comprobantesWhatsapp.id, c.id));
       confirmados += 1;
     }
