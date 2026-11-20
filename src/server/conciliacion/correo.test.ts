@@ -253,18 +253,18 @@ describe("leerCorreoBanco", () => {
     it("con CONCILIACION_CUENTAS, un aviso de Itaú a otra cuenta se descarta y a la propia se acepta", async () => {
       vi.stubEnv("CONCILIACION_CUENTAS", " 26523697 , ");
       correos(
-        avisoDe(1, { text: `${AVISO}
-Nro. de cuenta crédito:    0000000026523697` }),
-        avisoDe(2, { text: `${AVISO.replace("OP-1", "OP-2")}
-Nro. de cuenta crédito:    0000000099999999` }),
+        avisoDe(1, { text: `Nro. de cuenta crédito:    0000000026523697
+${AVISO}` }),
+        avisoDe(2, { text: `Nro. de cuenta crédito:    0000000099999999
+${AVISO.replace("OP-1", "OP-2")}` }),
       );
       expect(await leerCorreoBanco()).toMatchObject({ sinCruzar: 1, descartados: 1 });
     });
 
     it("sin CONCILIACION_CUENTAS definida no se verifica la cuenta destino", async () => {
       vi.stubEnv("CONCILIACION_CUENTAS", undefined);
-      correos(avisoDe(1, { text: `${AVISO}
-Nro. de cuenta crédito:    0000000099999999` }));
+      correos(avisoDe(1, { text: `Nro. de cuenta crédito:    0000000099999999
+${AVISO}` }));
       expect(await leerCorreoBanco()).toMatchObject({ sinCruzar: 1, descartados: 0 });
     });
 

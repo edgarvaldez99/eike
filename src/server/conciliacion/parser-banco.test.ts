@@ -178,6 +178,13 @@ Nro. de operación: 1 Moneda y Monto: PYG 5.000 Nro. comprobante: 99 Concepto de
     expect(parsearAvisoBanco(familiarComentario)?.cuentaDestino).toBeNull();
   });
 
+  it("Itaú: una cuenta crédito que aparece solo dentro del concepto (después de él) no se acepta", () => {
+    const soloEnConcepto = `Transferencia recibida Nro. de operación: 1 Moneda y Monto: PYG 5.000 Nro. comprobante: 99 Concepto de la Transferencia: x Nro. de cuenta crédito: 81123742 Estado: acreditada`;
+    const aviso = parsearAvisoBanco(soloEnConcepto);
+    expect(aviso?.cuentaDestino).toBeNull();
+    expect(aviso && cuentaDestinoAutorizada(aviso, ["81123742"])).toBe(false);
+  });
+
   it("un aviso de Itaú sin su cuenta crédito se rechaza aunque otra etiqueta diga la cuenta propia", () => {
     const aviso = parsearAvisoBanco(`Transferencia recibida Nro. de operación: 1 Moneda y Monto: PYG 5.000 Concepto de la Transferencia: Nro. de cuenta del beneficiario: 81123742`);
     expect(aviso && cuentaDestinoAutorizada(aviso, ["81123742"])).toBe(false);
