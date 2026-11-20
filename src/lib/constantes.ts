@@ -119,6 +119,16 @@ export type EstadoComprobanteWa = (typeof ESTADOS_COMPROBANTE_WA)[number];
 export const ORIGENES_COMPROBANTE = ["whatsapp", "carrito"] as const;
 export type OrigenComprobante = (typeof ORIGENES_COMPROBANTE)[number];
 
+// Bitácora de mensajes de WhatsApp (tabla mensajes_whatsapp). Los entrantes quedan
+// 'recibido'; los salientes pasan por 'simulado' (envío apagado), 'enviado',
+// 'entregado', 'leido' o 'fallido' según lo que informe Meta.
+export const DIRECCIONES_MENSAJE_WA = ["entrante", "saliente"] as const;
+export type DireccionMensajeWa = (typeof DIRECCIONES_MENSAJE_WA)[number];
+export const TIPOS_MENSAJE_WA = ["texto", "plantilla", "imagen", "documento", "otro"] as const;
+export type TipoMensajeWa = (typeof TIPOS_MENSAJE_WA)[number];
+export const ESTADOS_MENSAJE_WA = ["recibido", "simulado", "enviado", "entregado", "leido", "fallido"] as const;
+export type EstadoMensajeWa = (typeof ESTADOS_MENSAJE_WA)[number];
+
 export const METODOS_PAGO = ["transferencia", "tarjeta", "billetera"] as const;
 export type MetodoPago = (typeof METODOS_PAGO)[number];
 

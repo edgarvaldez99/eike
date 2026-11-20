@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 import { db } from "@/db/cliente";
-import { comprobantesWhatsapp } from "@/db/esquema";
+import { eq } from "drizzle-orm";
+import { comprobantesWhatsapp, mensajesWhatsapp } from "@/db/esquema";
 import { crearOrden, crearUsuario } from "@/test/fixtures";
 import { registrarAviso } from "@/server/conciliacion/avisos";
+import { registrarMensaje } from "./mensajes";
 import { procesarPayload, type DepsWhatsapp } from "./procesar";
 
 const TEXTO_OCR = `ueno bank · Comprobante de transferencia
@@ -276,10 +278,37 @@ describe("procesarPayload: casos límite", () => {
 
   it("los avisos de estado (sin mensajes) no hacen nada", async () => {
     const soloEstados = { entry: [{ changes: [{ value: { metadata: { phone_number_id: "1" } } }] }] };
-    expect(await procesarPayload(soloEstados, await deps())).toEqual({ procesados: 0, ignorados: 0, repetidos: 0, errores: 0 });
+    expect(await procesarPayload(soloEstados, await deps())).toEqual({ procesados: 0, ignorados: 0, textos: 0, repetidos: 0, errores: 0 });
   });
 
   it("sin dependencias explícitas usa las reales (acá solo se ignora un texto, sin tocar la red)", async () => {
     expect(await procesarPayload(mensaje("wamid.M", "text"))).toMatchObject({ ignorados: 1, procesados: 0 });
+  });
+});
+
+describe("procesarPayload: conversación (texto, estados y comprobante atribuido)", () => {
+  const payloadTexto = (id: string, body: string, from = "595991258700") => ({
+    entry: [{ changes: [{ value: { messages: [{ id, from, type: "text", text: { body } }] } }] }],
+  });
+
+  it("un texto con el código de su compra se responde, y el comprobante que manda después queda atribuido a esa orden", async () => {
+    const organizadorId = await crearUsuario({ rol: "organizador" });
+    const ordenId = await crearOrden({ organizadorId, codigo: "ORD-DDDD11112222", contacto: "595991258700", subtotal: 10000 });
+
+    const r1 = await procesarPayload(payloadTexto("wamid.T1", "ORD-DDDD11112222"), await deps());
+    expect(r1.textos).toBe(1);
+    expect(await db.select().from(mensajesWhatsapp).where(eq(mensajesWhatsapp.direccion, "saliente"))).toHaveLength(1);
+
+    await procesarPayload(mensaje("wamid.IMG"), await deps());
+    const [fila] = await db.select().from(comprobantesWhatsapp);
+    expect(fila.ordenId).toBe(ordenId);
+  });
+
+  it("los estados de entrega actualizan la bitácora de lo enviado", async () => {
+    await registrarMensaje({ direccion: "saliente", waMessageId: "wamid.OUT", numero: "595991258700", ordenId: null, tipo: "texto", contenido: "x", estado: "enviado" });
+    const estados = { entry: [{ changes: [{ value: { statuses: [{ id: "wamid.OUT", status: "delivered" }] } }] }] };
+    await procesarPayload(estados, await deps());
+    const [fila] = await db.select().from(mensajesWhatsapp);
+    expect(fila.estado).toBe("entregado");
   });
 });

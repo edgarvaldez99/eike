@@ -113,6 +113,7 @@ export async function crearOrden(datos: {
   codigo?: string;
   nombreComprador?: string;
   email?: string;
+  contacto?: string | null;
   subtotal?: number;
   descuento?: number;
   cantidadTickets?: number;
@@ -126,6 +127,7 @@ export async function crearOrden(datos: {
       compradorId: datos.compradorId ?? null,
       nombreComprador: datos.nombreComprador ?? "Comprador de test",
       email: datos.email ?? "comprador@test.com",
+      contacto: datos.contacto ?? null,
       subtotal: datos.subtotal ?? 0,
       descuento: datos.descuento ?? 0,
       cantidadTickets: datos.cantidadTickets ?? 1,

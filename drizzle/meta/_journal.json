@@ -127,6 +127,13 @@
       "when": 1795140948547,
       "tag": "0017_comprobante_ocr_carrito",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795205386480,
+      "tag": "0018_mensajes_whatsapp",
+      "breakpoints": true
     }
   ]
 }

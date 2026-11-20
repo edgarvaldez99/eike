@@ -19,7 +19,10 @@ import {
   APROBACION_GRATUITO,
   ESTADOS_ASIENTO,
   ESTADOS_AVISO_BANCO,
+  DIRECCIONES_MENSAJE_WA,
   ESTADOS_COMPROBANTE_WA,
+  ESTADOS_MENSAJE_WA,
+  TIPOS_MENSAJE_WA,
   ORIGENES_COMPROBANTE,
   ESTADOS_CARRITO,
   ESTADOS_EVENTO,
@@ -41,7 +44,10 @@ import {
   TIPOS_TANDA,
   type AprobacionGratuito,
   type EstadoAvisoBanco,
+  type DireccionMensajeWa,
   type EstadoComprobanteWa,
+  type EstadoMensajeWa,
+  type TipoMensajeWa,
   type OrigenComprobante,
   type EstadoAsiento,
   type EstadoCarrito,
@@ -980,6 +986,47 @@ export const comprobantesWhatsapp = pgTable(
     }).onDelete("set null"),
     checkEnum("chk_comprobantes_wa_estado", t.estado, ESTADOS_COMPROBANTE_WA),
     checkEnum("chk_comprobantes_wa_origen", t.origen, ORIGENES_COMPROBANTE),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// mensajes_whatsapp — bitácora de TODO mensaje que entra o sale por el número
+// de la plataforma (Cloud API). Sirve para: saber si la ventana de 24 h del
+// cliente sigue abierta (último entrante), no procesar dos veces un reintento
+// del webhook (wa_message_id único) y seguir el estado de entrega de lo
+// enviado. numero va normalizado (595XXXXXXXXX).
+// ---------------------------------------------------------------------------
+export const mensajesWhatsapp = pgTable(
+  "mensajes_whatsapp",
+  {
+    id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+    direccion: text("direccion").notNull().$type<DireccionMensajeWa>(),
+    // Id que asigna Meta; null en los simulados (envío apagado).
+    waMessageId: varchar("wa_message_id", { length: 120 }),
+    numero: varchar("numero", { length: 30 }).notNull(),
+    ordenId: bigint("orden_id", { mode: "number" }),
+    tipo: text("tipo").notNull().$type<TipoMensajeWa>(),
+    // Texto del mensaje (o nombre de la plantilla), recortado.
+    contenido: text("contenido"),
+    estado: text("estado").notNull().$type<EstadoMensajeWa>(),
+    error: varchar("error", { length: 255 }),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).notNull().defaultNow(),
+    actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("uq_mensajes_wa_message_id")
+      .on(t.waMessageId)
+      .where(sql`${t.waMessageId} is not null`),
+    index("idx_mensajes_wa_numero").on(t.numero, t.direccion, t.creadoEn),
+    index("idx_mensajes_wa_orden").on(t.ordenId),
+    foreignKey({
+      name: "fk_mensajes_wa_orden",
+      columns: [t.ordenId],
+      foreignColumns: [ordenes.id],
+    }).onDelete("set null"),
+    checkEnum("chk_mensajes_wa_direccion", t.direccion, DIRECCIONES_MENSAJE_WA),
+    checkEnum("chk_mensajes_wa_tipo", t.tipo, TIPOS_MENSAJE_WA),
+    checkEnum("chk_mensajes_wa_estado", t.estado, ESTADOS_MENSAJE_WA),
   ],
 );
 

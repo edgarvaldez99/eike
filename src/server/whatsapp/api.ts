@@ -1,6 +1,6 @@
 import { MAX_BYTES } from "@/lib/archivos/comprobante";
 
-const VERSION_GRAPH = () => process.env.WHATSAPP_GRAPH_VERSION ?? "v23.0";
+export const VERSION_GRAPH = () => process.env.WHATSAPP_GRAPH_VERSION ?? "v23.0";
 
 const ERROR_TAMANO = `El archivo supera el máximo permitido (${MAX_BYTES / 1024 / 1024} MB).`;
 

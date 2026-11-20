@@ -3,13 +3,15 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db/cliente";
-import { comprobantesWhatsapp } from "@/db/esquema";
+import { comprobantesWhatsapp, ordenes } from "@/db/esquema";
 import { directorioUploads, prepararComprobante } from "@/lib/archivos/comprobante";
 import { cruzarComprobantesConAvisos } from "@/server/conciliacion/cruce";
 import { ocrComprobante } from "@/server/conciliacion/ocr";
 import { registrarComprobante } from "@/server/conciliacion/comprobantes";
 import { parsearComprobanteOcr } from "@/server/conciliacion/parser-comprobante";
 import { descargarMedia } from "./api";
+import { manejarTexto } from "./consulta";
+import { actualizarEstadoSaliente, ordenDeLaConversacion, registrarMensaje } from "./mensajes";
 
 const mediaSchema = z.object({
   id: z.string(),
@@ -35,6 +37,16 @@ const payloadSchema = z.object({
                       type: z.string(),
                       image: mediaSchema.optional(),
                       document: mediaSchema.optional(),
+                      text: z.object({ body: z.string() }).optional(),
+                    }),
+                  )
+                  .optional(),
+                statuses: z
+                  .array(
+                    z.object({
+                      id: z.string(),
+                      status: z.string(),
+                      errors: z.array(z.object({ code: z.number().optional(), title: z.string().optional() })).optional(),
                     }),
                   )
                   .optional(),
@@ -56,6 +68,8 @@ const depsPorDefecto: DepsWhatsapp = { descargarMedia, ocr: ocrComprobante };
 export interface ResumenWhatsapp {
   procesados: number;
   ignorados: number;
+  /** Mensajes de texto atendidos (se respondió con el estado de la compra o una guía). */
+  textos: number;
   repetidos: number;
   errores: number;
 }
@@ -69,11 +83,13 @@ function directorioComprobantesWa(): string {
  * recibido descarga el comprobante, le aplica OCR, hace el pre-check
  * (monto legible, Nº de comprobante no repetido, beneficiario esperado) y lo
  * guarda; después intenta el doble check contra los avisos del banco.
- * Todo lo demás (texto, audios, estados de entrega) se ignora. Idempotente
- * por wa_message_id: Meta reintenta los webhooks y no debe duplicar nada.
+ * Los textos se contestan (consulta.ts) y los estados de entrega actualizan la
+ * bitácora de mensajes enviados. Todo lo demás (audios, stickers…) solo se
+ * registra. Idempotente por wa_message_id: Meta reintenta los webhooks y no
+ * debe duplicar ni responder dos veces.
  */
 export async function procesarPayload(payload: unknown, deps: DepsWhatsapp = depsPorDefecto): Promise<ResumenWhatsapp> {
-  const resumen: ResumenWhatsapp = { procesados: 0, ignorados: 0, repetidos: 0, errores: 0 };
+  const resumen: ResumenWhatsapp = { procesados: 0, ignorados: 0, textos: 0, repetidos: 0, errores: 0 };
   const parsed = payloadSchema.safeParse(payload);
   if (!parsed.success) return resumen;
 
@@ -87,12 +103,45 @@ export async function procesarPayload(payload: unknown, deps: DepsWhatsapp = dep
         resumen.ignorados += value.messages?.length ?? 0;
         continue;
       }
+      for (const estado of value.statuses ?? []) {
+        const detalle = estado.errors?.[0];
+        try {
+          if (estado.status === "failed") {
+            await actualizarEstadoSaliente(estado.id, "fallido", detalle ? `${detalle.code ?? ""} ${detalle.title ?? ""}`.trim() : null);
+          } else if (estado.status === "sent" || estado.status === "delivered" || estado.status === "read") {
+            await actualizarEstadoSaliente(estado.id, estado.status === "sent" ? "enviado" : estado.status === "read" ? "leido" : "entregado");
+          }
+        } catch (error) {
+          resumen.errores += 1;
+          console.error(`No se pudo actualizar el estado ${estado.id}:`, error instanceof Error ? error.message : error);
+        }
+      }
       const nombrePerfil = value.contacts?.[0]?.profile?.name ?? null;
 
       for (const mensaje of value.messages ?? []) {
+        if (mensaje.type === "text" && mensaje.text) {
+          try {
+            if (await manejarTexto({ waMessageId: mensaje.id, numero: mensaje.from, texto: mensaje.text.body })) resumen.textos += 1;
+            else resumen.repetidos += 1;
+          } catch (error) {
+            resumen.errores += 1;
+            console.error(`No se pudo atender el texto ${mensaje.id}:`, error instanceof Error ? error.message : error);
+          }
+          continue;
+        }
         const media = mensaje.type === "image" ? mensaje.image : mensaje.type === "document" ? mensaje.document : undefined;
         if (!media) {
+          // Audio, sticker, etc.: no se procesa, pero igual abre la ventana de 24 h.
           resumen.ignorados += 1;
+          await registrarMensaje({
+            direccion: "entrante",
+            waMessageId: mensaje.id,
+            numero: mensaje.from,
+            ordenId: null,
+            tipo: "otro",
+            contenido: mensaje.type,
+            estado: "recibido",
+          }).catch(() => false);
           continue;
         }
         try {
@@ -105,6 +154,13 @@ export async function procesarPayload(payload: unknown, deps: DepsWhatsapp = dep
             resumen.repetidos += 1;
             continue;
           }
+
+          // Si antes se identificó con el código de su compra (desde su número), el
+          // comprobante es de esa orden; si no, se busca por monto como siempre.
+          const ordenConvId = await ordenDeLaConversacion(mensaje.from);
+          const ordenConv = ordenConvId
+            ? (await db.select({ id: ordenes.id, total: ordenes.total }).from(ordenes).where(eq(ordenes.id, ordenConvId)).limit(1))[0] ?? null
+            : null;
 
           const descargado = await deps.descargarMedia(media.id);
           const preparado = await prepararComprobante(new File([new Uint8Array(descargado.buffer)], "comprobante"));
@@ -131,7 +187,16 @@ export async function procesarPayload(payload: unknown, deps: DepsWhatsapp = dep
             problemas,
             datos,
             origen: "whatsapp",
-            orden: null,
+            orden: ordenConv,
+          });
+          await registrarMensaje({
+            direccion: "entrante",
+            waMessageId: mensaje.id,
+            numero: mensaje.from,
+            ordenId: ordenConv?.id ?? null,
+            tipo: mensaje.type === "image" ? "imagen" : "documento",
+            contenido: media.caption ?? null,
+            estado: "recibido",
           });
           resumen.procesados += 1;
         } catch (error) {
