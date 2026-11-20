@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNotNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/db/cliente";
 import { mensajesWhatsapp } from "@/db/esquema";
 import type { EstadoMensajeWa, TipoMensajeWa } from "@/lib/constantes";
@@ -119,22 +119,36 @@ export interface TurnoConversacion {
   contenido: string;
 }
 
-/** Últimos mensajes de texto del chat (cronológicos), para darle contexto al asistente. */
+/** ¿Ya guardamos este mensaje entrante? (Meta reintenta los webhooks.) */
+export async function mensajeYaRegistrado(waMessageId: string): Promise<boolean> {
+  const [fila] = await db
+    .select({ id: mensajesWhatsapp.id })
+    .from(mensajesWhatsapp)
+    .where(eq(mensajesWhatsapp.waMessageId, waMessageId))
+    .limit(1);
+  return Boolean(fila);
+}
+
+/**
+ * Últimos textos que el cliente escribió (cronológicos), para darle contexto al
+ * asistente. Solo lo que él mismo escribió y que no está ligado a una compra:
+ * nuestras respuestas traen códigos, montos y datos de pago, y no viajan a un tercero.
+ */
 export async function historialReciente(numero: string, maximo = 6, ahora = new Date()): Promise<TurnoConversacion[]> {
   const filas = await db
-    .select({ direccion: mensajesWhatsapp.direccion, contenido: mensajesWhatsapp.contenido })
+    .select({ contenido: mensajesWhatsapp.contenido })
     .from(mensajesWhatsapp)
     .where(
       and(
         eq(mensajesWhatsapp.numero, numero),
+        eq(mensajesWhatsapp.direccion, "entrante"),
         eq(mensajesWhatsapp.tipo, "texto"),
+        isNull(mensajesWhatsapp.ordenId),
         isNotNull(mensajesWhatsapp.contenido),
         gt(mensajesWhatsapp.creadoEn, new Date(ahora.getTime() - MS_VENTANA)),
       ),
     )
     .orderBy(desc(mensajesWhatsapp.creadoEn))
     .limit(maximo);
-  return filas
-    .reverse()
-    .map((f) => ({ direccion: f.direccion as "entrante" | "saliente", contenido: f.contenido ?? "" }));
+  return filas.reverse().map((f) => ({ direccion: "entrante" as const, contenido: f.contenido ?? "" }));
 }

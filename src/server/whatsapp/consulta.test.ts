@@ -129,6 +129,24 @@ describe("derivación a una persona", () => {
     expect(d[0].motivo).toBe("reclamo de pago");
   });
 
+  it("no consulta a la IA con un reintento de Meta ni pasado el tope de respuestas por hora", async () => {
+    vi.stubEnv("CHATBOT_ACTIVO", "true");
+    vi.stubEnv("GEMINI_API_KEY", "k");
+    const fetchFalso = vi.fn(async () =>
+      new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"respuesta":"ok","derivar":false,"motivo":""}' }] } }] })),
+    );
+    vi.stubGlobal("fetch", fetchFalso);
+
+    await manejarTexto({ waMessageId: "wamid.R", numero: NUMERO, texto: "¿hay entradas?" });
+    await manejarTexto({ waMessageId: "wamid.R", numero: NUMERO, texto: "¿hay entradas?" });
+    expect(fetchFalso).toHaveBeenCalledTimes(1);
+
+    for (let i = 0; i < 6; i++) await manejarTexto({ waMessageId: `wamid.S${i}`, numero: NUMERO, texto: `pregunta ${i}` });
+    const llamadas = fetchFalso.mock.calls.length;
+    await manejarTexto({ waMessageId: "wamid.T", numero: NUMERO, texto: "otra más" });
+    expect(fetchFalso).toHaveBeenCalledTimes(llamadas);
+  });
+
   it("si la IA no está disponible usa la guía fija", async () => {
     await manejarTexto({ waMessageId: "wamid.G", numero: NUMERO, texto: "hola" });
     const e = await db.select().from(mensajesWhatsapp).where(eq(mensajesWhatsapp.direccion, "saliente"));

@@ -8,7 +8,7 @@ import { obtenerAliasBancarioPlataforma } from "@/server/cuenta";
 import { derivarAPersona } from "./atencion";
 import { enviarTexto } from "./enviar";
 import { consultarIA, iaActiva } from "./ia";
-import { contarSalientesDesde, historialReciente, registrarMensaje } from "./mensajes";
+import { contarSalientesDesde, historialReciente, mensajeYaRegistrado, registrarMensaje } from "./mensajes";
 
 /** Tope de respuestas automáticas a un mismo número por hora: corta bucles y abuso. */
 const MAX_RESPUESTAS_POR_HORA = 5;
@@ -94,11 +94,12 @@ export async function textoEstadoOrden(orden: OrdenDeConsulta): Promise<string> 
 export async function prepararRespuesta(
   numero: string,
   texto: string,
+  permitirIA = true,
 ): Promise<{ ordenId: number | null; respuesta: string | null; derivar: string | null }> {
   const codigo = extraerCodigoOrden(texto);
   if (!codigo) {
     if (pidePersona(texto)) return { ordenId: null, respuesta: MENSAJE_DERIVADO, derivar: "El cliente pidió hablar con una persona" };
-    if (iaActiva()) {
+    if (permitirIA && iaActiva()) {
       const ia = await consultarIA(texto, await historialReciente(numero));
       if (ia?.derivar) return { ordenId: null, respuesta: MENSAJE_DERIVADO, derivar: ia.motivo };
       if (ia) return { ordenId: null, respuesta: ia.respuesta, derivar: null };
@@ -116,7 +117,13 @@ export async function prepararRespuesta(
  * Devuelve true si se procesó (false = ya estaba o no se pudo registrar).
  */
 export async function manejarTexto(args: { waMessageId: string; numero: string; texto: string }): Promise<boolean> {
-  const { ordenId, respuesta, derivar } = await prepararRespuesta(args.numero, args.texto);
+  // Antes de gastar nada (la IA cuesta): un reintento de Meta no se procesa de nuevo y,
+  // pasado el tope de respuestas por hora, ya no se consulta a la IA.
+  if (await mensajeYaRegistrado(args.waMessageId)) return false;
+  const hace1h = new Date(Date.now() - 60 * 60 * 1000);
+  const topeAlcanzado = (await contarSalientesDesde(args.numero, hace1h)) >= MAX_RESPUESTAS_POR_HORA;
+
+  const { ordenId, respuesta, derivar } = await prepararRespuesta(args.numero, args.texto, !topeAlcanzado);
   const nuevo = await registrarMensaje({
     direccion: "entrante",
     waMessageId: args.waMessageId,
@@ -128,10 +135,7 @@ export async function manejarTexto(args: { waMessageId: string; numero: string; 
   });
   if (!nuevo) return false;
   if (derivar) await derivarAPersona({ numero: args.numero, motivo: derivar, ultimoMensaje: args.texto, ordenId });
-  if (!respuesta) return true;
-
-  const hace1h = new Date(Date.now() - 60 * 60 * 1000);
-  if ((await contarSalientesDesde(args.numero, hace1h)) >= MAX_RESPUESTAS_POR_HORA) return true;
+  if (!respuesta || topeAlcanzado) return true;
   await enviarTexto(args.numero, respuesta, { ordenId });
   return true;
 }
